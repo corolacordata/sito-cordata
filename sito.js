@@ -495,7 +495,7 @@ var TESTI_SCHEMA = [
   ['Home','home.voce.titolo','Che voce sei: titolo','Che voce *sei?*'],
   ['Home','home.voce.testo','Che voce sei: testo','Muovi i cursori e ascolta: in trenta secondi scopri se sei basso, baritono o tenore. Poi vieni a scoprirlo davvero, a una prova con noi.'],
   ['Home','home.rep.titolo','Repertorio: titolo','Canti di montagna, *di popolo, di casa*'],
-  ['Home','home.storia.eti','Storia: etichetta','La nostra storia · scorri per salire'],
+  ['Chi siamo','home.storia.eti','Storia: etichetta','La nostra storia · scorri per salire'],
   ['Home','home.fest.eti','Festival: etichetta','Dal 1988 · lo organizziamo noi'],
   ['Home','home.fest.titolo','Festival: titolo','Festival degli *Appennini*'],
   ['Home','home.fest.testo','Festival: testo','Ogni maggio i cori della montagna di tutta Italia salgono a Montalto: una sera nella Basilica di Santa Maria Assunta, sotto i Sibillini.'],
@@ -616,7 +616,14 @@ function giacca(conTitolo){
 }
 
  
-function canti(lista){ return '<div class="canti">' + lista.map(function(b){ var i = (D.brani || []).indexOf(b); return '<button class="canto" data-canto="' + i + '"><span class="n">' + ('0' + (i + 1)).slice(-2) + '</span><b>' + esc(b.titolo) + '</b><small>' + esc(b.autore) + (b.arr ? ' · arr. ' + esc(b.arr) : '') + '</small></button>'; }).join('') + '</div>'; }
+ 
+function cantiCasa(){
+  var tutti = D.brani || [], g = Math.floor(Date.now() / 864e5), con = conAudio(), senza = tutti.filter(function(b){ return !b.audio; }), out = [], k;
+  for (k = 0; k < con.length && out.length < 6; k++) out.push(con[(g + k) % con.length]);
+  for (k = 0; k < senza.length && out.length < 6; k++) out.push(senza[(g * 5 + k) % senza.length]);
+  return out;
+}
+function canti(lista, inOrdine){ return '<div class="canti">' + lista.map(function(b, pos){ var i = (D.brani || []).indexOf(b); return '<button class="canto" data-canto="' + i + '"><span class="n">' + ('0' + ((inOrdine ? pos : i) + 1)).slice(-2) + '</span><b>' + esc(b.titolo) + '</b><small>' + esc(b.autore) + (b.arr ? ' · arr. ' + esc(b.arr) : '') + '</small></button>'; }).join('') + '</div>'; }
 function conAudio(){ return (D.brani || []).filter(function(b){ return b.audio; }); }
 function pesca(){ var bb = conAudio(); if (!bb.length) return ''; var i = attiva('branoGiorno') ? Math.floor(ora() / 864e5) % bb.length : 0, b = bb[i];
   return '<div class="pesca sale" data-pesca="' + i + '"><div class="righe"></div><div><span class="eti" style="color:#fff">' + (attiva('branoGiorno') ? 'Il canto di oggi' : 'Pesca un canto') + '</span><div class="tit" data-ptit style="margin-top:18px">' + esc(b.titolo) + '</div><div class="aut" data-paut>' + esc(b.autore) + (b.arr ? ' · arr. ' + esc(b.arr) : '') + '</div></div>'
@@ -682,7 +689,7 @@ function spoRiga(s){
 }
 function sostenitori(){
   var s = D.sponsor || []; if (!s.length) return '';
-  var g = s.map(function(x){ var d = (x.logo ? '<img src="' + FOTO(x.logo) + '" alt="' + esc(x.nome) + '" loading="lazy">' : '<b>' + esc(x.nome) + '</b>') + '<small>' + esc(x.attivita || x.categoria) + '</small>';
+  var g = s.map(function(x){ var d = (x.logo ? '<img src="' + FOTO(x.logo) + '" alt="' + esc(x.nome) + '" loading="lazy">' : '<b>' + esc(x.nome) + '</b>') + '<small>' + esc(x.categoria) + '</small>';
     return x.sito ? '<a class="logo" href="' + esc(x.sito) + '" target="_blank" rel="noopener" title="' + esc(x.nome + (x.attivita ? ' · ' + x.attivita : '')) + '">' + d + '</a>' : '<div class="logo">' + d + '</div>'; }).join('');
   return '<section class="sez" style="padding-top:0"><div class="wrap"><div class="sez-h"><div><span class="eti">Con il sostegno di</span><h2 class="h3">' + TI('home.sost.titolo') + '</h2></div>' + (on('sostienici') ? '<a class="btn btn-o btn-s" href="sostienici.html">Sostienici ' + IC.ar + '</a>' : '') + '</div></div><div class="loghi"><div>' + g + g + '</div></div></section>';
 }
@@ -792,9 +799,8 @@ P.index = function(){
     + '<section class="cordata sez" id="coro"><div class="wrap"><div class="sale">' + ETI('home.coro.eti') + '<h2 class="h2" style="margin-top:20px">' + TI('home.coro.titolo') + '</h2><p class="lead">' + TP('home.coro.testo') + '</p>' + sezioniBtn() + '</div>' + cordata() + '</div><div class="wrap nomi-wrap">' + nomiCoro() + '</div></section>'
     + (on('vieni-a-cantare') ? giacca() : '')
     + '<section class="sez"><div class="wrap"><div class="sez-h"><div><span class="eti">Repertorio <b>· ' + (D.brani || []).length + ' canti</b></span><h2 class="h2">' + TI('home.rep.titolo') + '</h2></div><a class="btn btn-o btn-s" href="repertorio.html">Tutto il repertorio ' + IC.ar + '</a></div>'
-    + (conAudio().length ? '<div class="due" style="align-items:stretch"><div>' + canti((D.brani || []).slice(0, 6)) + '</div>' + pesca() + '</div>' : canti((D.brani || []).slice(0, 6))) + '</div></section>'
-    + salita()
-    + '<div style="height:clamp(80px,10vw,140px)"></div>' + festival()
+    + (conAudio().length ? '<div class="due" style="align-items:stretch"><div>' + canti(cantiCasa(), true) + '</div>' + pesca() + '</div>' : canti(cantiCasa(), true)) + '</div></section>'
+    + festival()
     + ((D.articoli || []).length ? '<section class="sez" style="padding-top:0"><div class="wrap"><div class="sez-h"><div><span class="eti">Hanno scritto di noi</span><h2 class="h2">' + TI('home.stampa.titolo') + '</h2></div><a class="btn btn-o btn-s" href="media.html">Foto e stampa ' + IC.ar + '</a></div>' + citazioni(D.articoli.slice(0, 3)) + '</div></section>' : '')
     + sostenitori() + vetta();
 };
@@ -943,6 +949,23 @@ if (SIT.natale && $('.hero')) { var nv = document.createElement('div'); nv.setAt
   if (!CALMO) for (var k = 0; k < 50; k++) { var fi = document.createElement('i'), sz = 2 + Math.random() * 4; fi.style.cssText = 'position:absolute;top:-10px;left:' + (Math.random() * 100) + '%;width:' + sz + 'px;height:' + sz + 'px;border-radius:50%;background:#fff;opacity:.75;animation:neve ' + (8 + Math.random() * 10) + 's linear -' + (Math.random() * 18) + 's infinite'; nv.appendChild(fi); }
   $('.hero').appendChild(nv); var st = document.createElement('style'); st.textContent = '@keyframes neve{to{transform:translate3d(40px,105svh,0)}}'; document.head.appendChild(st); }
 
+ 
+document.addEventListener('error', function(e){
+  var im = e.target; if (!im || im.tagName !== 'IMG') return;
+  var lg = im.closest('.logo'); if (lg) { var n = document.createElement('b'); n.textContent = im.alt; im.parentNode.replaceChild(n, im); return; }
+  var pezzo = im.closest('figure, .gal, .bl-gal a') || im; pezzo.style.display = 'none';
+  var sez = im.closest('.muro-sez, .sez');
+  if (sez && (sez.querySelector('.muro') || sez.querySelector('.galleria')) && !$$('img', sez).some(function(x){ var p = x.closest('figure, .gal') || x; return p.style.display !== 'none'; })) sez.style.display = 'none';
+}, true);
+ 
+$$('.binario').forEach(function(B){
+  var box = document.createElement('div'); box.className = 'binario-box'; B.parentNode.insertBefore(box, B); box.appendChild(B);
+  var fr = function(cl, et, ver){ var x = document.createElement('button'); x.type = 'button'; x.className = 'binario-fr ' + cl; x.setAttribute('aria-label', et); x.innerHTML = IC.ar;
+    x.onclick = function(){ B.scrollBy({ left:ver * Math.max(200, B.clientWidth - 40), behavior:'smooth' }); }; box.appendChild(x); return x; };
+  var pr = fr('prec', 'Concerti precedenti', -1), su = fr('succ', 'Concerti successivi', 1);
+  var agg = function(){ var m = B.scrollWidth - B.clientWidth; box.classList.toggle('scorre', m > 4); pr.disabled = B.scrollLeft < 4; su.disabled = B.scrollLeft > m - 4; };
+  B.addEventListener('scroll', agg, { passive:true }); addEventListener('resize', agg); agg();
+});
 var acc = $('#accordo');
  
 var accAu = null;
