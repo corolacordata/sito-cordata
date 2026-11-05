@@ -321,8 +321,8 @@ document.addEventListener('click', function(e){
     var sg = e.target.closest('[data-scegli]'); if (sg) { e.preventDefault(); try { parent.postMessage({ sitoCordata:'scegliFoto', campo:sg.getAttribute('data-scegli') }, '*'); } catch(eG) {} return; } }
   var b = e.target.closest('[data-ics]'); if (b) { e.preventDefault(); scaricaIcs(eventi.filter(function(x){ return x.id === b.getAttribute('data-ics'); }), 'concerto.ics'); }
   var s = e.target.closest('[data-sh]'); if (s) { e.preventDefault(); var v = eventi.filter(function(x){ return x.id === s.getAttribute('data-sh'); })[0]; condividi('Coro La Cordata', v.titolo + ' · ' + dataLunga(quando(v)) + ' ore ' + v.ora + ', ' + v.citta); }
-  var st = e.target.closest('[data-strappa]'); if (st) { var bg = st.closest('.biglietto'); bg.classList.add('strappato'); setTimeout(function(){ bg.classList.add('girato'); }, CALMO ? 0 : 450); }
-  var rm = e.target.closest('[data-rimetti]'); if (rm) { rm.closest('.biglietto').classList.remove('girato', 'strappato'); }
+  var st = e.target.closest('[data-strappa]'); if (st) stacca(st.closest('.biglietto'));
+  else if (BIG && (e.target.closest('.biglietto') !== BIG || !e.target.closest('button,a'))) rimetti();
   if (e.target.closest('[data-sfoglia]')) { e.preventDefault(); sfoglia(); return; }
   var tp = e.target.closest('[data-traccia]'); if (tp) { var au = tp.parentNode.querySelector('audio'); $$('.traccia audio').forEach(function(x){ if (x !== au) { x.pause(); x.parentNode.classList.remove('va'); } }); if (au.paused) { suona(au); tp.parentNode.classList.add('va'); } else { au.pause(); tp.parentNode.classList.remove('va'); }
     au.ontimeupdate = function(){ var b = tp.parentNode.querySelector('.tr-barra i'); if (b && au.duration) b.style.width = (au.currentTime / au.duration * 100) + '%'; }; au.onended = function(){ tp.parentNode.classList.remove('va'); }; return; }
@@ -330,8 +330,8 @@ document.addEventListener('click', function(e){
   var yt = e.target.closest('[data-yt]'); if (yt && !yt.querySelector('iframe')) { yt.innerHTML = '<iframe src="https://www.youtube-nocookie.com/embed/' + yt.getAttribute('data-yt') + '?autoplay=1&rel=0" title="Video" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>'; return; }
   var spo = e.target.closest('[data-sp]'); if (spo && !spo.querySelector('iframe')) { spo.classList.add('aperto'); spo.innerHTML = '<iframe src="https://open.spotify.com/embed/' + spo.getAttribute('data-sp') + '" title="Spotify" allow="encrypted-media"></iframe>'; return; }
   var pr = e.target.closest('[data-prenota]'); if (pr) { var x = (D.contributi || [])[+pr.getAttribute('data-prenota')] || {};
-    finestra('<span class="eti">Con il tuo contributo</span><h2 class="h3" style="margin:14px 0 6px">' + esc(x.nome) + '</h2><p style="color:var(--mute);margin:0 0 16px">' + (x.offerta ? 'Offerta libera, da ' + esc(x.offerta) + ' €. ' : '') + 'Ti scriviamo noi per la consegna.</p><form class="modulo" data-demo style="box-shadow:none;padding:0"><div class="r2"><label for="prNome">Nome<input id="prNome" required></label><label for="prCont">Email o telefono<input id="prCont" required></label></div>' + (x.taglie ? '<label for="prTaglia">Taglia<select id="prTaglia">' + String(x.taglie).split(/[,\s]+/).filter(String).map(function(t){ return '<option>' + esc(t) + '</option>'; }).join('') + '</select></label>' : '') + '<label class="ok" for="prPriv"><input id="prPriv" type="checkbox" required>Ho letto l’informativa privacy</label><button class="btn btn-r" style="justify-content:center">Prenota</button></form>');
-    $$('.fin form[data-demo]').forEach(function(f){ f.onsubmit = function(ev2){ ev2.preventDefault(); avviso('Prenotazione ricevuta: ti scriviamo noi'); $('.fin').classList.remove('aperta'); }; }); return; }
+    finestra('<span class="eti">Con il tuo contributo</span><h2 class="h3" style="margin:14px 0 6px">' + esc(x.nome) + '</h2><p style="color:var(--mute);margin:0 0 16px">' + (x.offerta ? 'Offerta libera, da ' + esc(x.offerta) + ' €. ' : '') + 'Ti scriviamo noi per la consegna.</p><form class="modulo" data-modulo="coro_premio" data-extra="Prenota: ' + esc(x.nome) + '" style="box-shadow:none;padding:0"><div class="r2"><label for="prNome">Nome<input id="prNome" required></label><label for="prCont">Email o telefono<input id="prCont" required></label></div>' + (x.taglie ? '<label for="prTaglia">Taglia<select id="prTaglia">' + String(x.taglie).split(/[,\s]+/).filter(String).map(function(t){ return '<option>' + esc(t) + '</option>'; }).join('') + '</select></label>' : '') + '<label class="ok" for="prPriv"><input id="prPriv" type="checkbox" required>Ho letto l’<a href="privacy.html" target="_blank" rel="noopener" style="text-decoration:underline">informativa privacy</a></label><button class="btn btn-r" style="justify-content:center">Prenota</button></form>');
+    return; }
   var gf = e.target.closest('[data-foto]'); if (gf) finestra('<img src="' + gf.getAttribute('data-foto') + '" alt="" style="width:100%;border-radius:14px"><div style="margin-top:14px"><button class="btn btn-o btn-s" data-chiudi>Chiudi</button></div>');
   var gr = e.target.closest('[data-grande]'); if (gr) { var ev3 = eventi.filter(function(x){ return x.id === gr.getAttribute('data-grande'); })[0]; finestra('<div class="poster grande">' + manifesto(ev3) + '</div><div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap"><button class="btn btn-r btn-s" data-ics="' + ev3.id + '">' + IC.cal + 'Mettilo in calendario</button><button class="btn btn-o btn-s" data-chiudi>Chiudi</button></div>'); }
   var c = e.target.closest('[data-canto]'); if (c) { var x = (D.brani || [])[+c.getAttribute('data-canto')];
@@ -341,6 +341,23 @@ document.addEventListener('click', function(e){
 
 
 
+
+
+var BIG = null, BIGt = 0, BIGo = null;
+function rimetti(){ if (!BIG) return; clearTimeout(BIGt); if (BIGo) BIGo.disconnect(); BIG.onmouseleave = BIG.onmouseenter = null; BIG.classList.remove('girato', 'strappato'); BIG = BIGo = null; }
+function stacca(bg){
+  rimetti(); BIG = bg; bg.classList.add('strappato');
+  setTimeout(function(){ if (BIG === bg) bg.classList.add('girato'); }, CALMO ? 0 : 450);
+  if (window.matchMedia && matchMedia('(hover:hover)').matches) {
+    bg.onmouseleave = function(){ clearTimeout(BIGt); BIGt = setTimeout(rimetti, 1200); };
+    bg.onmouseenter = function(){ clearTimeout(BIGt); };
+  }
+  if (window.IntersectionObserver) { var visto = false;
+    BIGo = new IntersectionObserver(function(v){ var r = v[v.length - 1].intersectionRatio; if (r >= .25) visto = true; else if (visto) rimetti(); }, { threshold:[0, .25] });
+    BIGo.observe(bg); }
+}
+addEventListener('keydown', function(e){ if (e.key === 'Escape') rimetti(); });
+
 function biglietto(e, i){
   var t = quando(e), g = fra(ora(), t), tra = g === 0 ? 'Oggi' : g === 1 ? 'Domani' : g > 0 && g <= 30 ? 'Tra ' + g + ' giorni' : '';
   return '<article class="biglietto' + (i === 0 ? ' primo' : '') + '"><div class="corpo">' + (tra ? '<span class="tra">' + tra + '</span>' : '')
@@ -348,7 +365,7 @@ function biglietto(e, i){
     + '<h3>' + esc(e.titolo) + '</h3><div class="dove">' + esc(e.luogo) + '<br>' + esc(e.citta) + '</div>'
     + '<div class="az"><a class="pill" href="#" data-ics="' + e.id + '">' + piccola('cal') + 'Calendario</a><a class="pill" href="' + mappa(e) + '" target="_blank" rel="noopener">' + piccola('map') + 'Mappa</a><a class="pill" href="#" data-sh="' + e.id + '" aria-label="Condividi">' + piccola('sh') + '</a></div></div>'
     + '<button class="matrice" data-strappa aria-label="Stacca il biglietto e guarda il manifesto"><b>' + e.ora + '</b><span>' + esc(ingresso(e)) + '</span><span class="forbici">Stacca ✂</span></button>'
-    + '<div class="retro"><div class="poster">' + manifesto(e) + '</div><div class="retro-az"><button class="pill" data-grande="' + e.id + '">Ingrandisci</button><button class="pill" data-rimetti>Rimetti il biglietto</button></div></div></article>';
+    + '<div class="retro"><div class="poster">' + manifesto(e) + '</div><div class="retro-az"><button class="pill" data-grande="' + e.id + '">Ingrandisci</button></div></div></article>';
 }
  
 function ingresso(e){ var p = String((e && e.prezzo) || '').trim(); return { offerta:'Ingresso a offerta', pagamento:p ? 'Ingresso ' + p : 'Ingresso a pagamento', invito:'Su invito' }[(e && e.ingresso) || ''] || 'Ingresso libero'; }
@@ -495,7 +512,7 @@ var TESTI_SCHEMA = [
   ['Home','home.voce.titolo','Che voce sei: titolo','Che voce *sei?*'],
   ['Home','home.voce.testo','Che voce sei: testo','Muovi i cursori e ascolta: in trenta secondi scopri se sei basso, baritono o tenore. Poi vieni a scoprirlo davvero, a una prova con noi.'],
   ['Home','home.rep.titolo','Repertorio: titolo','Canti di montagna, *di popolo, di casa*'],
-  ['Chi siamo','home.storia.eti','Storia: etichetta','La nostra storia · scorri per salire'],
+  ['Home','home.storia.eti','Storia: etichetta','La nostra storia · scorri per salire'],
   ['Home','home.fest.eti','Festival: etichetta','Dal 1988 · lo organizziamo noi'],
   ['Home','home.fest.titolo','Festival: titolo','Festival degli *Appennini*'],
   ['Home','home.fest.testo','Festival: testo','Ogni maggio i cori della montagna di tutta Italia salgono a Montalto: una sera nella Basilica di Santa Maria Assunta, sotto i Sibillini.'],
@@ -516,6 +533,9 @@ var TESTI_SCHEMA = [
   ['Home','vetta.btn','Fondo pagina: pulsante','Vieni a una prova'],
   ['Chi siamo','chi.titolo','Titolo','Voci *in cordata* dal 1987'],
   ['Chi siamo','chi.citazione','Citazione','«Un coro che nasce dal respiro delle montagne: armonie semplici, autentiche.»'],
+  ['Chi siamo','chi.corda.eti','La corda: etichetta','La corda · un nodo alla volta'],
+  ['Chi siamo','chi.corda.titolo','La corda: titolo','Ogni tappa, *un nodo*'],
+  ['Chi siamo','chi.corda.invito','La corda: invito in fondo','Il prossimo nodo può essere il tuo'],
   ['Chi siamo','chi.voci.titolo','Le voci: titolo','Quattro *colori*'],
   ['Chi siamo','chi.voci.testo','Le voci: testo','Tenori primi, tenori secondi, baritoni e bassi. Tocca una sezione: la senti cantare e la vedi nella cordata.'],
   ['Chi siamo','chi.consiglio.titolo','Consiglio: titolo','Il consiglio *direttivo*'],
@@ -662,6 +682,41 @@ function attivaSalita(){
   addEventListener('scroll', agg, { passive:true }); addEventListener('resize', agg); agg();
 }
 
+
+
+function corda(){
+  var t = tappe(), oggi = ora().getFullYear();
+  return '<section class="sez corda-sez"><div class="wrap"><div class="sez-h"><div>' + ETI('chi.corda.eti') + '<h2 class="h2" style="margin-top:20px">' + TI('chi.corda.titolo') + '</h2></div></div>'
+    + '<div class="corda" id="corda"><svg class="corda-f" aria-hidden="true"><path class="corda-b"/><path class="corda-a"/></svg><ol>'
+    + t.map(function(x, i){ var a = /^(19|20)[0-9][0-9]$/.test(String(x.anno)) ? +x.anno : 0, fa = a ? oggi - a : -1;
+        return '<li class="nodo' + (i % 2 ? ' dx' : '') + '"><span class="nodo-p"></span><div class="nodo-c"><b class="nodo-a">' + esc(x.anno || '…') + '</b>'
+          + (fa > 0 ? '<small>' + fa + (fa === 1 ? ' anno fa' : ' anni fa') + '</small>' : fa === 0 ? '<small>Oggi</small>' : '') + '<p>' + esc(x.testo) + '</p></div></li>'; }).join('')
+    + '</ol></div>' + (on('vieni-a-cantare') ? '<div class="corda-fine"><p class="lir">' + TP('chi.corda.invito') + '</p><a class="btn" href="vieni-a-cantare.html">Vieni a cantare ' + IC.ar + '</a></div>' : '') + '</div></section>';
+}
+function attivaCorda(){
+  var C = $('#corda'); if (!C) return;
+  var svg = $('svg', C), base = $('.corda-b', C), att = $('.corda-a', C), punti = $$('.nodo-p', C), L = 0;
+  var agg = function(){
+    var r = C.getBoundingClientRect(), su = innerHeight * .7 - r.top, p = Math.min(1, Math.max(0, su / Math.max(1, r.height)));
+    att.style.strokeDashoffset = L * (1 - p);
+    punti.forEach(function(s){ s.parentNode.classList.toggle('preso', s.getBoundingClientRect().top < innerHeight * .7); });
+  };
+  var disegna = function(){
+    var bx = C.getBoundingClientRect(); if (!bx.width || !punti.length) return;
+    var yy = punti.map(function(p){ var r = p.getBoundingClientRect(); return { x:r.left - bx.left + r.width / 2, y:r.top - bx.top + r.height / 2 }; });
+    var d = 'M' + yy[0].x.toFixed(1) + ' 0 L' + yy[0].x.toFixed(1) + ' ' + yy[0].y.toFixed(1), A = bx.width < 700 ? 9 : 26;
+    for (var i = 1; i < yy.length; i++) { var a = yy[i - 1], b = yy[i], m = (b.y - a.y) / 2, s = i % 2 ? A : -A;
+      d += ' C' + (a.x + s).toFixed(1) + ' ' + (a.y + m * .7).toFixed(1) + ' ' + (b.x + s).toFixed(1) + ' ' + (b.y - m * .7).toFixed(1) + ' ' + b.x.toFixed(1) + ' ' + b.y.toFixed(1); }
+    d += ' L' + yy[yy.length - 1].x.toFixed(1) + ' ' + bx.height.toFixed(1);
+    svg.setAttribute('width', bx.width); svg.setAttribute('height', bx.height);
+    base.setAttribute('d', d); att.setAttribute('d', d);
+    L = att.getTotalLength(); att.style.strokeDasharray = L; agg();
+  };
+  addEventListener('scroll', agg, { passive:true }); addEventListener('resize', disegna); addEventListener('load', disegna);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(disegna);
+  disegna();
+}
+
 function muro(){
   var m = (D.foto || {}).muro || []; if (m.length < 5) return '';
   return '<section class="sez muro-sez"><div class="wrap"><div class="sez-h"><div>' + ETI('home.muro.eti') + '<h2 class="h2">' + TI('home.muro.titolo') + '</h2></div>' + (on('media') ? '<a class="btn btn-o btn-s" href="media.html">Tutte le foto ' + IC.ar + '</a>' : '') + '</div>'
@@ -683,9 +738,10 @@ function stampaPerAnno(lista){
 function citazioni(lista){ return '<div class="citazioni">' + lista.map(function(a){ var d = giornoD(a.data); return '<a class="cit sale" href="' + esc(a.link) + '"><span class="t">' + esc(a.testata) + '</span><q>' + esc(a.titolo) + '</q><p>' + esc(a.estratto) + '</p><small>' + d.getDate() + ' ' + MESI[d.getMonth()] + ' ' + d.getFullYear() + '</small></a>'; }).join('') + '</div>'; }
  
 function spoRiga(s){
-  var det = (s.logo ? '<img src="' + FOTO(s.logo) + '" alt="" loading="lazy">' : '') + '<div>' + (s.attivita ? '<p>' + esc(s.attivita) + '</p>' : '') + (s.luogo ? '<p class="d">' + esc(s.luogo) + '</p>' : '')
-    + (s.sito ? '<a class="btn btn-o btn-s" href="' + esc(s.sito) + '" target="_blank" rel="noopener">Visita il sito ' + IC.ar + '</a>' : '') + (!s.attivita && !s.luogo && !s.sito ? '<p class="d">Grazie per il sostegno.</p>' : '') + '</div>';
-  return '<details class="spo"><summary class="riga" style="grid-template-columns:minmax(0,1fr) auto"><b>' + esc(s.nome) + (s.attivita ? '<small>' + esc(s.attivita) + '</small>' : '') + '</b><span class="d">' + esc(s.categoria) + ' <i class="spo-piu">+</i></span></summary><div class="spo-c">' + det + '</div></details>';
+  var dentro = (s.logo ? '<span class="spo-logo"><img src="' + FOTO(s.logo) + '" alt="" loading="lazy"></span>' : '')
+    + '<span class="spo-testo"><b>' + esc(s.nome) + '</b>' + (s.attivita ? '<span class="spo-att">' + esc(s.attivita) + '</span>' : '') + (s.luogo ? '<span class="spo-dove">' + esc(s.luogo) + '</span>' : '')
+    + (s.sito ? '<span class="spo-sito">Visita il sito ' + IC.ar + '</span>' : '') + '</span>';
+  return s.sito ? '<a class="spo-t" href="' + esc(s.sito) + '" target="_blank" rel="noopener">' + dentro + '</a>' : '<div class="spo-t">' + dentro + '</div>';
 }
 function sostenitori(){
   var s = D.sponsor || []; if (!s.length) return '';
@@ -800,7 +856,8 @@ P.index = function(){
     + (on('vieni-a-cantare') ? giacca() : '')
     + '<section class="sez"><div class="wrap"><div class="sez-h"><div><span class="eti">Repertorio <b>· ' + (D.brani || []).length + ' canti</b></span><h2 class="h2">' + TI('home.rep.titolo') + '</h2></div><a class="btn btn-o btn-s" href="repertorio.html">Tutto il repertorio ' + IC.ar + '</a></div>'
     + (conAudio().length ? '<div class="due" style="align-items:stretch"><div>' + canti(cantiCasa(), true) + '</div>' + pesca() + '</div>' : canti(cantiCasa(), true)) + '</div></section>'
-    + festival()
+    + salita()
+    + '<div style="height:clamp(80px,10vw,140px)"></div>' + festival()
     + ((D.articoli || []).length ? '<section class="sez" style="padding-top:0"><div class="wrap"><div class="sez-h"><div><span class="eti">Hanno scritto di noi</span><h2 class="h2">' + TI('home.stampa.titolo') + '</h2></div><a class="btn btn-o btn-s" href="media.html">Foto e stampa ' + IC.ar + '</a></div>' + citazioni(D.articoli.slice(0, 3)) + '</div></section>' : '')
     + sostenitori() + vetta();
 };
@@ -808,7 +865,7 @@ P.index = function(){
 P['chi-siamo'] = function(){
   return testa('Chi siamo', TI('chi.titolo'), CT('motto'))
     + '<section class="sez"><div class="wrap due"><div class="sale chi-lato"><span class="eti">La storia</span><p class="lir" style="font-size:clamp(1.5rem,2.6vw,2.2rem);line-height:1.2;margin:22px 0 0">' + TP('chi.citazione') + '</p>' + chiLato() + '</div><div class="sale"><p style="font-size:1.12rem;line-height:1.75;margin:0">' + GT('storia') + '</p><p style="color:var(--mute);font:500 12px var(--mono);letter-spacing:.06em;margin-top:18px">Logo: bozzetto di Renato Cacciamani</p></div></div></section>'
-    + salita()
+    + corda()
      
     + '<section class="sez"><div class="wrap"><div class="sez-h"><div><span class="eti">Le voci</span><h2 class="h2" style="margin-top:20px">' + TI('chi.voci.titolo') + '</h2></div><p class="lead">' + TP('chi.voci.testo') + '</p></div>' + pentagramma() + '</div></section>'
     + '<div style="height:clamp(80px,12vw,170px)"></div>' + consiglio()
@@ -868,7 +925,7 @@ P['vieni-a-cantare'] = function(){
     + '<section class="sez" style="padding-top:0"><div class="wrap due"><div class="sale"><span class="eti">Domande</span><h2 class="h2" style="margin-top:20px">Quello che <span class="lir">ci chiedono</span></h2></div><div class="domande sale">'
     + [1,2,3,4,5].map(function(i){ return TP('vieni.d' + i) ? dom(TP('vieni.d' + i), TP('vieni.r' + i)) : ''; }).join('') + '</div></div></section>'
     + '<section class="sez cordata" id="scrivici"><div class="wrap"><div class="sale"><span class="eti">Scrivici</span><h2 class="h2" style="margin-top:20px">' + TI('vieni.scrivi') + '</h2><p class="lead">La richiesta arriva nell’app del coro. Ti rispondiamo in pochi giorni.</p></div>'
-    + '<form class="modulo sale" data-demo><div class="r2"><label for="fNome">Nome<input id="fNome" required autocomplete="given-name"></label><label for="fEta">Età<input id="fEta" type="number" min="14" max="99" inputmode="numeric"></label></div><label for="fCont">Telefono o email<input id="fCont" required></label><label for="fVoce">Che voce pensi di essere?<select id="fVoce"><option>Non lo so ancora</option><option>Tenore primo</option><option>Tenore secondo</option><option>Baritono</option><option>Basso</option></select></label><label class="ok" for="fPriv"><input id="fPriv" type="checkbox" required>Ho letto l’informativa privacy</label><button class="btn btn-r" style="justify-content:center">Voglio provare ' + IC.ar + '</button></form></div></section>';
+    + '<form class="modulo sale" data-modulo="coro_vieni"><div class="r2"><label for="fNome">Nome<input id="fNome" required autocomplete="given-name"></label><label for="fEta">Età<input id="fEta" type="number" min="14" max="99" inputmode="numeric"></label></div><label for="fCont">Telefono o email<input id="fCont" required></label><label for="fVoce">Che voce pensi di essere?<select id="fVoce"><option>Non lo so ancora</option><option>Tenore primo</option><option>Tenore secondo</option><option>Baritono</option><option>Basso</option></select></label><label class="ok" for="fPriv"><input id="fPriv" type="checkbox" required>Ho letto l’<a href="privacy.html" target="_blank" rel="noopener" style="text-decoration:underline">informativa privacy</a></label><button class="btn btn-r" style="justify-content:center">Voglio provare ' + IC.ar + '</button></form></div></section>';
 };
 function passo(n, t, p){ return '<div class="modo sale"><span class="n">' + n + '</span><h3>' + t + '</h3><p>' + p + '</p></div>'; }
 function dom(q, r){ return '<details><summary>' + q + '</summary><p>' + r + '</p></details>'; }
@@ -885,7 +942,7 @@ P.sostienici = function(){
       + '<div class="premi">' + co.map(function(x, i){ return '<div class="premio sale">' + (x.foto ? '<img src="' + FOTO(x.foto) + '" alt="" loading="lazy">' : '<div class="premio-seg">' + esc(x.nome.charAt(0)) + '</div>') + '<div class="premio-t"><b>' + esc(x.nome) + '</b>' + (x.testo ? '<p>' + esc(x.testo) + '</p>' : '') + (x.offerta ? '<span class="offerta">offerta da ' + esc(x.offerta) + ' €</span>' : '') + '<button class="btn btn-r btn-s" data-prenota="' + i + '">Lo voglio</button></div></div>'; }).join('') + '</div>'
       + (D.contributiNota ? '<p class="nota-nomi">' + esc(D.contributiNota) + '</p>' : '') + '</div></section>' : '')
     + (Object.keys(cat).length ? '<section class="sez"' + (co.length ? '' : ' style="padding-top:0"') + '><div class="wrap"><div class="sez-h"><div><span class="eti">Grazie a</span><h2 class="h2">Chi sale <span class="lir">con noi</span></h2></div><p class="lead">L’elenco si aggiorna da solo quando un accordo viene firmato o scade.</p></div>'
-      + Object.keys(cat).map(function(k){ return '<div class="sale" style="margin-top:34px"><span class="eti">' + esc(k) + '</span><div class="diario" style="margin-top:14px">' + cat[k].map(spoRiga).join('') + '</div></div>'; }).join('') + '</div></section>' : '');
+      + Object.keys(cat).map(function(k){ return '<div class="sale" style="margin-top:34px"><span class="eti">' + esc(k) + '</span><div class="spo-griglia">' + cat[k].map(spoRiga).join('') + '</div></div>'; }).join('') + '</div></section>' : '');
 };
 
 P.contatti = function(){
@@ -895,7 +952,7 @@ P.contatti = function(){
     + '<div><span class="eti">Email</span><p style="font:800 clamp(1.6rem,3vw,2.6rem)/1 var(--display);text-transform:uppercase;margin:12px 0 0;overflow-wrap:anywhere"><a href="mailto:' + esc(c.email) + '" style="text-decoration:none">' + esc(c.email) + '</a></p></div>'
     + '<div><span class="eti">Sede</span><p style="margin:12px 0 0;font-size:1.15rem">' + esc(c.indirizzo) + '</p><a class="pill" style="margin-top:12px" href="https://www.openstreetmap.org/search?query=' + encodeURIComponent(c.indirizzo) + '" target="_blank" rel="noopener">' + piccola('map') + 'Apri la mappa</a></div>'
     + '<div><span class="eti">Associazione</span><p style="margin:12px 0 0;color:var(--mute);font:500 13.5px/1.8 var(--mono)">' + esc(c.nome) + '<br>C.F. e P.IVA ' + esc(c.cf) + '<br>RUNTS ' + esc(c.runts) + '<br>PEC ' + esc(c.pec) + '</p></div></div>'
-    + '<form class="modulo sale" data-demo><h3 class="h3">Mandaci un messaggio</h3><div class="r2"><label for="cNome">Nome<input id="cNome" required></label><label for="cCont">Email o telefono<input id="cCont" required></label></div><label for="cTipo">Di cosa si tratta?<select id="cTipo"><option>Informazioni</option><option>Invitare il coro</option><option>Entrare nel coro</option><option>Sostenere il coro</option><option>Stampa</option></select></label><label for="cMsg">Messaggio<textarea id="cMsg" rows="5"></textarea></label><label class="ok" for="cPriv"><input id="cPriv" type="checkbox" required>Ho letto l’informativa privacy</label><button class="btn btn-r" style="justify-content:center">Invia ' + IC.ar + '</button></form></div></section>';
+    + '<form class="modulo sale" data-modulo="coro_contatti"><h3 class="h3">Mandaci un messaggio</h3><div class="r2"><label for="cNome">Nome<input id="cNome" required></label><label for="cCont">Email o telefono<input id="cCont" required></label></div><label for="cTipo">Di cosa si tratta?<select id="cTipo"><option>Informazioni</option><option>Invitare il coro</option><option>Entrare nel coro</option><option>Sostenere il coro</option><option>Stampa</option></select></label><label for="cMsg">Messaggio<textarea id="cMsg" rows="5"></textarea></label><label class="ok" for="cPriv"><input id="cPriv" type="checkbox" required>Ho letto l’<a href="privacy.html" target="_blank" rel="noopener" style="text-decoration:underline">informativa privacy</a></label><button class="btn btn-r" style="justify-content:center">Invia ' + IC.ar + '</button></form></div></section>';
 };
 
 P.coristi = function(){
@@ -907,7 +964,7 @@ P.coristi = function(){
 };
 
 P.privacy = function(){
-  return testa('Privacy', 'Nessun cookie. <span class="lir">Davvero.</span>', 'Questo sito non usa cookie, non traccia chi lo visita e non carica servizi di Google, Facebook o altri, se non li apri tu.')
+  return testa('Privacy', 'Nessun cookie. <span class="lir">Davvero.</span>', 'Questo sito non usa cookie e non traccia chi lo visita. Video, musica e mappe si aprono solo se li apri tu.')
     + '<section class="sez"><div class="wrap testo-lungo">' + ((D.privacy || []).length ? D.privacy.map(function(p){ return '<h2 class="h3">' + esc(p.titolo) + '</h2><p>' + esc(p.testo).replace(/\n/g, '<br>') + '</p>'; }).join('') : '<p class="lead" style="max-width:none">Il testo completo dell’informativa arriva dall’app (Siti web → Privacy), lo stesso che il coro approva e aggiorna.</p>')
     + (function(){ var sv = servizi(); return (sv.video ? '<h2 class="h3">Video di YouTube</h2><p>Alcune pagine hanno un video di YouTube (Google Ireland Ltd). Si collega solo quando premi play, in modalità «senza cookie»: prima vedi solo un’immagine salvata sul nostro sito.</p>' : '')
       + (sv.mappa ? '<h2 class="h3">Mappa</h2><p>La mappa (OpenStreetMap) si carica solo quando premi «Mostra la mappa»; non usa cookie di profilazione.</p>' : ''); })() + '</div></section>';
@@ -921,7 +978,7 @@ P.futura = function(){
   var id = window.CORDATA_HASH || location.hash.slice(1) || new URLSearchParams(location.search).get('p') || '', p = pagina(id) || { titolo:'Pagina', futura:'' };
   var corpo = {
     notizie:citazioni([{ data:'2026-10-12', testata:'Dalla Bacheca', titolo:'Aperte le iscrizioni per la nuova stagione', estratto:'Gli avvisi che in app segni «pubblico» arrivano qui da soli.', link:'#' },{ data:'2026-10-09', testata:'Dalla Bacheca', titolo:'Il programma del Concerto di Santo Stefano', estratto:'Brani, ospiti e orari.', link:'#' },{ data:'2026-10-06', testata:'Dalla Bacheca', titolo:'Le foto del concerto in piazza', estratto:'Ventiquattro scatti.', link:'#' }]),
-    prenota:'<form class="modulo" data-demo style="max-width:680px"><div class="r2"><label for="pNome">Nome e ente<input id="pNome" required></label><label for="pCont">Email o telefono<input id="pCont" required></label></div><div class="r2"><label for="pData">Data<input id="pData" type="date"></label><label for="pLuogo">Luogo<input id="pLuogo"></label></div><label for="pOcc">Occasione<select id="pOcc"><option>Rassegna o concerto</option><option>Matrimonio</option><option>Festa di paese</option><option>Funzione religiosa</option><option>Altro</option></select></label><button class="btn btn-r" style="justify-content:center">Chiedi la data</button><p style="color:var(--mute);font-size:14px;margin:0">La richiesta arriva nell’app (Richieste) e il direttivo vede subito se la data è libera.</p></form>',
+    prenota:'<form class="modulo" data-modulo="coro_concerto" style="max-width:680px"><div class="r2"><label for="pNome">Nome e ente<input id="pNome" required></label><label for="pCont">Email o telefono<input id="pCont" required></label></div><div class="r2"><label for="pData">Data<input id="pData" type="date"></label><label for="pLuogo">Luogo<input id="pLuogo"></label></div><label for="pOcc">Occasione<select id="pOcc"><option>Rassegna o concerto</option><option>Matrimonio</option><option>Festa di paese</option><option>Funzione religiosa</option><option>Altro</option></select></label><label class="ok" for="pPriv"><input id="pPriv" type="checkbox" required>Ho letto l’<a href="privacy.html" target="_blank" rel="noopener" style="text-decoration:underline">informativa privacy</a></label><button class="btn btn-r" style="justify-content:center">Chiedi la data</button></form>',
     trasparenza:'<div class="diario">' + [['Rendiconto 2025','Approvato dall’assemblea'],['Contributi pubblici ricevuti nel 2025','Obbligo di legge per le associazioni'],['Statuto','Versione registrata al RUNTS'],['Verbale di assemblea','Estratto pubblico']].map(function(r){ return '<div class="riga"><span class="d">PDF</span><div><b>' + r[0] + '</b><small>' + r[1] + '</small></div><a class="pill" href="#">Apri</a></div>'; }).join('') + '</div>'
   }[id] || '';
   return testa(p.on ? esc(p.titolo) : 'Pagina predisposta', esc(p.titolo), esc(p.futura) + (p.on ? '' : '. Si accende dall’app quando vuoi.')) + '<section class="sez"><div class="wrap">' + corpo + '</div></section>';
@@ -953,7 +1010,7 @@ if (SIT.natale && $('.hero')) { var nv = document.createElement('div'); nv.setAt
 document.addEventListener('error', function(e){
   var im = e.target; if (!im || im.tagName !== 'IMG') return;
   var lg = im.closest('.logo'); if (lg) { var n = document.createElement('b'); n.textContent = im.alt; im.parentNode.replaceChild(n, im); return; }
-  var pezzo = im.closest('figure, .gal, .bl-gal a') || im; pezzo.style.display = 'none';
+  var pezzo = im.closest('figure, .gal, .bl-gal a, .spo-logo') || im; pezzo.style.display = 'none';
   var sez = im.closest('.muro-sez, .sez');
   if (sez && (sez.querySelector('.muro') || sez.querySelector('.galleria')) && !$$('img', sez).some(function(x){ var p = x.closest('figure, .gal') || x; return p.style.display !== 'none'; })) sez.style.display = 'none';
 }, true);
@@ -986,9 +1043,30 @@ $$('.sezioni button').forEach(function(b){ b.onclick = function(){ var i = b.get
   b.setAttribute('aria-pressed', 'true'); if (sc) sc.setAttribute('data-sez', i); $$('[data-sezn]').forEach(function(x){ x.classList.toggle('acceso', x.getAttribute('data-sezn') === i); }); voce(NOTE[D.sezioni[i].nome], 2.4, .08); }; });
 $$('[data-copia]').forEach(function(b){ b.onclick = function(){ var v = b.getAttribute('data-copia'); if (navigator.clipboard) navigator.clipboard.writeText(v).then(function(){ avviso('Codice fiscale copiato'); }, function(){ avviso('Codice fiscale: ' + v); }); else avviso('Codice fiscale: ' + v); }; });
 var cal2 = $('[data-cal-tutti2]'); if (cal2) cal2.onclick = function(){ scaricaIcs(futuri(), 'concerti-la-cordata.ics'); };
-$$('form[data-demo]').forEach(function(f){ f.onsubmit = function(e){ e.preventDefault(); avviso('Bozza: nel sito vero arriva nell’app del coro'); f.reset(); }; });
+ 
+function inviaModulo(f){
+  var u = (D.coro || {}).moduli, mail = (D.coro || {}).email || '', dati = { nome:'', contatto:'' }, righe = [], extra = f.getAttribute('data-extra'), hp = f.querySelector('[name=hp]');
+  if (ANTEPRIMA || !u) { avviso('In anteprima il modulo non parte: sul sito pubblicato arriva per email al coro.'); return; }
+  if (extra) righe.push(extra);
+  Array.prototype.forEach.call(f.querySelectorAll('input,select,textarea'), function(c){
+    if (c.type === 'checkbox' || c.name === 'hp' || !c.value) return;
+    if (/Nome$/.test(c.id)) dati.nome = c.value; else if (/Cont$/.test(c.id)) dati.contatto = c.value;
+    else if (c.tagName === 'TEXTAREA') righe.push(c.value);
+    else { var l = c.closest('label'); righe.push((l && l.firstChild ? l.firstChild.textContent.trim() : c.id) + ': ' + c.value); } });
+  var b = f.querySelector('button.btn-r'); if (b) b.disabled = true;
+  var rifiuto = 'Non siamo sicuri che sia partito: scrivici a ' + mail + '.';
+  fetch(u, { method:'POST', body:new URLSearchParams({ sito:'coro', tipo:f.getAttribute('data-modulo'), nome:dati.nome, contatto:dati.contatto, note:righe.join('\n'), privacy:'1', hp:hp ? hp.value : '' }) })
+    .then(function(r){ return r.json(); })
+    .then(function(r){ if (r && r.ok) { avviso('Ricevuto, grazie: ti rispondiamo presto.'); f.reset(); var fi = f.closest('.fin'); if (fi) fi.classList.remove('aperta'); } else avviso((r && r.errore) || rifiuto); }, function(){ avviso(rifiuto); })
+    .then(function(){ if (b) b.disabled = false; });
+}
+document.addEventListener('submit', function(e){ var f = e.target; if (!f.getAttribute || !f.getAttribute('data-modulo')) return; e.preventDefault(); inviaModulo(f); });
+ 
+function metti(){ Array.prototype.forEach.call(document.querySelectorAll('form[data-modulo]:not([data-hp])'), function(f){ f.setAttribute('data-hp', '1'); f.insertAdjacentHTML('afterbegin', '<input name="hp" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px">'); }); }
+metti();
 var pv = $('#provaVoce'); if (pv) provaVoce(pv);
 attivaSalita();
+attivaCorda();
 
  
 $$('[data-pesca]').forEach(function(P){ var au = P.querySelector('audio'), pl = P.querySelector('[data-pplay]'), bar = P.querySelector('.pesca-barra i');
