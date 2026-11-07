@@ -14,6 +14,9 @@ var esc = function(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, fun
  
 var CFG = D.config || {};
 var LOGO = D.logo || 'img/logo.png';
+var MINI = function(id){ return D.miniBase ? D.miniBase.replace('{id}', id) : FOTO(id); };
+ 
+var pillFoto = function(campo, c){ return window.CORDATA_ANTEPRIMA ? '<button type="button" class="cambia-foto" data-scegli="' + campo + '">' + (c ? 'Cambia foto' : 'Aggiungi foto') + '</button>' : ''; };
 var AUDIO = function(id){ if (!id) return ''; return /[/.:]/.test(id) ? id : (D.audioBase || 'audio/{id}.mp3').replace('{id}', id); };
 var AID = function(id){ return id && !/[/.:]/.test(id) ? ' data-aid="' + id + '"' : ''; };
  
@@ -56,6 +59,7 @@ var FOTO = function(id){ if (!id) return ''; return /[\/.:]/.test(id) ? id : (D.
     if (CFG.fotoPagine) { D.foto.pagine = {}; Object.keys(CFG.fotoPagine).forEach(function(k){ if (CFG.fotoPagine[k]) D.foto.pagine[k] = FOTO(CFG.fotoPagine[k]); }); }
     if (CFG.galleria && CFG.galleria.length) D.foto.tutte = CFG.galleria.map(FOTO);
   }
+  if (CFG.album && CFG.album.length) D.album = CFG.album.filter(function(x){ return x.foto && x.foto.length; }).slice().sort(function(p, q){ return String(q.data).localeCompare(String(p.data)); });
 })();
 D.situazioni = D.situazioni || {}; D.prove = D.prove || { giorno:'', ora:'', luogo:'' }; D.coro.social = D.coro.social || {};
 
@@ -115,8 +119,7 @@ function blocchi(lista){
     if (b.tipo === 'pdf') return '<div class="bl">' + tit + paragrafi(b.testo) + (b.file ? '<a class="btn btn-r" href="' + (ANTEPRIMA ? 'https://drive.google.com/file/d/' + b.file + '/view' : 'doc/' + b.file + '.pdf') + '" target="_blank" rel="noopener">Apri il PDF</a>' : '') + '</div>';
     if (b.tipo === 'video' && b.yt) return '<div class="bl">' + tit + '<div class="bl-video" data-yt="' + esc(b.yt) + '"><img src="' + (ANTEPRIMA ? 'https://i.ytimg.com/vi/' + esc(b.yt) + '/hqdefault.jpg' : 'img/yt-' + esc(b.yt) + '.jpg') + '" alt="" loading="lazy"><button type="button">▶ Guarda il video<small>si apre YouTube, senza cookie</small></button></div>' + paragrafi(b.testo) + '</div>';
     if (b.tipo === 'mappa' && b.lat != null) { var d = 0.012;
-      return '<div class="bl">' + tit + '<div class="bl-video" data-mappa="https://www.openstreetmap.org/export/embed.html?bbox=' + [b.lon - d, b.lat - d * 0.7, b.lon + d, b.lat + d * 0.7].join(',') + '&amp;layer=mapnik&amp;marker=' + b.lat + ',' + b.lon + '"><button type="button">Mostra la mappa<small>' + esc(b.luogo || '') + '</small></button></div>'
-        + paragrafi(b.testo) + '<a class="pill" href="https://www.openstreetmap.org/?mlat=' + b.lat + '&amp;mlon=' + b.lon + '#map=16/' + b.lat + '/' + b.lon + '" target="_blank" rel="noopener">Apri nel navigatore</a></div>'; }
+      return '<div class="bl">' + tit + paragrafi(b.testo) + '<a class="pill" href="https://www.google.com/maps/search/?api=1&amp;query=' + b.lat + ',' + b.lon + '" target="_blank" rel="noopener">' + piccola('map') + esc(b.luogo || 'Apri la mappa') + '</a></div>'; }
     if (b.tipo === 'contatti') return '<div class="bl">' + tit + paragrafi(b.testo) + '<p>' + (b.email ? '<a href="mailto:' + esc(b.email) + '">' + esc(b.email) + '</a>' : '') + (b.email && b.tel ? ' · ' : '') + (b.tel ? '<a href="tel:' + esc(String(b.tel).replace(/[ .]/g, '')) + '">' + esc(b.tel) + '</a>' : '') + '</p></div>';
     return '';
   }).join('');
@@ -308,7 +311,7 @@ function ics(lista){
 }
 function scaricaIcs(lista, nome){ if (!lista.length) return avviso('Nessun concerto in programma'); var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([ics(lista)], { type:'text/calendar' })); a.download = nome; document.body.appendChild(a); a.click(); a.remove(); avviso('Apri il file per metterlo nel calendario'); }
  
-var mappa = function(e){ return (e && e.mappa) || 'https://www.openstreetmap.org/search?query=' + encodeURIComponent(e.luogo + ', ' + e.citta); };
+var mappa = function(e){ return (e && e.mappa) || 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(e.luogo + ', ' + e.citta); };
 function condividi(titolo, testo){ var u = location.href; if (navigator.share) navigator.share({ title:titolo, text:testo, url:u }).catch(function(){}); else if (navigator.clipboard) navigator.clipboard.writeText(testo + ' ' + u).then(function(){ avviso('Link copiato'); }, function(){ avviso(testo); }); }
 var _av;
 function avviso(t){ var a = $('.avviso') || document.body.appendChild(Object.assign(document.createElement('div'), { className:'avviso', role:'status' })); a.textContent = t; a.classList.add('si'); clearTimeout(_av); _av = setTimeout(function(){ a.classList.remove('si'); }, 2800); }
@@ -326,14 +329,16 @@ document.addEventListener('click', function(e){
   if (e.target.closest('[data-sfoglia]')) { e.preventDefault(); sfoglia(); return; }
   var tp = e.target.closest('[data-traccia]'); if (tp) { var au = tp.parentNode.querySelector('audio'); $$('.traccia audio').forEach(function(x){ if (x !== au) { x.pause(); x.parentNode.classList.remove('va'); } }); if (au.paused) { suona(au); tp.parentNode.classList.add('va'); } else { au.pause(); tp.parentNode.classList.remove('va'); }
     au.ontimeupdate = function(){ var b = tp.parentNode.querySelector('.tr-barra i'); if (b && au.duration) b.style.width = (au.currentTime / au.duration * 100) + '%'; }; au.onended = function(){ tp.parentNode.classList.remove('va'); }; return; }
-  var mp = e.target.closest('[data-mappa]'); if (mp && !mp.querySelector('iframe')) { mp.innerHTML = '<iframe src="' + mp.getAttribute('data-mappa') + '" title="Mappa" loading="lazy"></iframe>'; return; }
   var yt = e.target.closest('[data-yt]'); if (yt && !yt.querySelector('iframe')) { yt.innerHTML = '<iframe src="https://www.youtube-nocookie.com/embed/' + yt.getAttribute('data-yt') + '?autoplay=1&rel=0" title="Video" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>'; return; }
   var spo = e.target.closest('[data-sp]'); if (spo && !spo.querySelector('iframe')) { spo.classList.add('aperto'); spo.innerHTML = '<iframe src="https://open.spotify.com/embed/' + spo.getAttribute('data-sp') + '" title="Spotify" allow="encrypted-media"></iframe>'; return; }
   var pr = e.target.closest('[data-prenota]'); if (pr) { var x = (D.contributi || [])[+pr.getAttribute('data-prenota')] || {};
     finestra('<span class="eti">Con il tuo contributo</span><h2 class="h3" style="margin:14px 0 6px">' + esc(x.nome) + '</h2><p style="color:var(--mute);margin:0 0 16px">' + (x.offerta ? 'Offerta libera, da ' + esc(x.offerta) + ' €. ' : '') + 'Ti scriviamo noi per la consegna.</p><form class="modulo" data-modulo="coro_premio" data-extra="Prenota: ' + esc(x.nome) + '" style="box-shadow:none;padding:0"><div class="r2"><label for="prNome">Nome<input id="prNome" required></label><label for="prCont">Email o telefono<input id="prCont" required></label></div>' + (x.taglie ? '<label for="prTaglia">Taglia<select id="prTaglia">' + String(x.taglie).split(/[,\s]+/).filter(String).map(function(t){ return '<option>' + esc(t) + '</option>'; }).join('') + '</select></label>' : '') + '<label class="ok" for="prPriv"><input id="prPriv" type="checkbox" required>Ho letto l’<a href="privacy.html" target="_blank" rel="noopener" style="text-decoration:underline">informativa privacy</a></label><button class="btn btn-r" style="justify-content:center">Prenota</button></form>');
     return; }
+  var alb = e.target.closest('[data-album]'); if (alb) { albumGriglia(+alb.getAttribute('data-album')); return; }
+  var afo = e.target.closest('[data-afoto]'); if (afo) { var pz2 = afo.getAttribute('data-afoto').split(':'); albumGrande(+pz2[0], +pz2[1]); return; }
+  var aa = e.target.closest('[data-aa]'); if (aa) { $$('[data-aa]').forEach(function(b){ b.setAttribute('aria-pressed', b === aa); }); $$('[data-album][data-y]').forEach(function(b){ b.hidden = b.getAttribute('data-y') !== aa.getAttribute('data-aa'); }); return; }
   var gf = e.target.closest('[data-foto]'); if (gf) finestra('<img src="' + gf.getAttribute('data-foto') + '" alt="" style="width:100%;border-radius:14px"><div style="margin-top:14px"><button class="btn btn-o btn-s" data-chiudi>Chiudi</button></div>');
-  var gr = e.target.closest('[data-grande]'); if (gr) { var ev3 = eventi.filter(function(x){ return x.id === gr.getAttribute('data-grande'); })[0]; finestra('<div class="poster grande">' + manifesto(ev3) + '</div><div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap"><button class="btn btn-r btn-s" data-ics="' + ev3.id + '">' + IC.cal + 'Mettilo in calendario</button><button class="btn btn-o btn-s" data-chiudi>Chiudi</button></div>'); }
+  var gr = e.target.closest('[data-grande]'); if (gr && !e.target.closest('a')) { var ev3 = eventi.filter(function(x){ return x.id === gr.getAttribute('data-grande'); })[0]; finestra('<div class="poster grande">' + manifesto(ev3) + '</div><div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap"><button class="btn btn-r btn-s" data-ics="' + ev3.id + '">' + IC.cal + 'Mettilo in calendario</button><button class="btn btn-o btn-s" data-chiudi>Chiudi</button></div>'); }
   var c = e.target.closest('[data-canto]'); if (c) { var x = (D.brani || [])[+c.getAttribute('data-canto')];
     finestra('<span class="eti">Repertorio</span><h2 class="h3" style="margin:16px 0 10px;font-size:2.6rem">' + esc(x.titolo) + '</h2><p class="lir" style="font-size:1.3rem;color:var(--mute);margin:0 0 20px">' + esc(x.autore) + (x.arr ? ', armonizzazione di ' + esc(x.arr) : '') + '</p>'
       + (x.testo ? '<p style="white-space:pre-line">' + esc(x.testo) + '</p>' : '<p style="color:var(--mute)">Il testo compare qui quando nel Repertorio dell’app è segnato come pubblicabile.</p>') + '<button class="btn btn-o btn-s" data-chiudi>Chiudi</button>'); }
@@ -356,7 +361,7 @@ function stacca(bg){
     BIGo = new IntersectionObserver(function(v){ var r = v[v.length - 1].intersectionRatio; if (r >= .25) visto = true; else if (visto) rimetti(); }, { threshold:[0, .25] });
     BIGo.observe(bg); }
 }
-addEventListener('keydown', function(e){ if (e.key === 'Escape') rimetti(); });
+addEventListener('keydown', function(e){ if (e.key === 'Escape') rimetti(); if (e.key === 'Enter' && e.target.matches && e.target.matches('.riga[data-grande]')) e.target.click(); });
 
 function biglietto(e, i){
   var t = quando(e), g = fra(ora(), t), tra = g === 0 ? 'Oggi' : g === 1 ? 'Domani' : g > 0 && g <= 30 ? 'Tra ' + g + ' giorni' : '';
@@ -379,10 +384,10 @@ function manifesto(e){
     + '<svg viewBox="0 0 300 60" preserveAspectRatio="none" aria-hidden="true"><path d="M0 60 L0 40 L40 28 L70 36 L110 12 L140 30 L180 6 L215 30 L250 18 L300 34 L300 60Z"/></svg></div>';
 }
 function riga(e){ var t = quando(e);
-  return '<div class="riga"><span class="d">' + t.getDate() + ' ' + mm(t) + '<br>' + t.getFullYear() + '</span><div><b>' + esc(e.titolo) + '</b><small>' + esc(e.luogo) + ' · ' + esc(e.citta) + '</small></div><a class="pill" href="' + mappa(e) + '" target="_blank" rel="noopener">' + piccola('map') + 'Dove</a></div>'; }
+  return '<div class="riga" data-grande="' + esc(e.id) + '" tabindex="0" role="button" aria-label="Guarda il manifesto: ' + esc(e.titolo) + '"><span class="d">' + t.getDate() + ' ' + mm(t) + '<br>' + t.getFullYear() + '</span><div><b>' + esc(e.titolo) + '</b><small>' + esc(e.luogo) + ' · ' + esc(e.citta) + '</small></div><a class="pill" href="' + mappa(e) + '" target="_blank" rel="noopener">' + piccola('map') + 'Dove</a></div>'; }
 function testa(eti, titolo, lead){
   var f = ((D.foto || {}).pagine || {})[PAG];
-  return '<section class="testa' + (f ? ' con-foto' : '') + '">' + (f ? '<img class="sfondo" src="' + f + '" alt="">' : '<canvas aria-hidden="true"></canvas>') + '<div class="wrap"><span class="eti">' + eti + '</span><h1 class="h1" style="margin-top:22px;max-width:14ch">' + titolo + '</h1>' + (lead ? '<p class="lead">' + lead + '</p>' : '') + '</div></section>';
+  return '<section class="testa' + (f ? ' con-foto' : '') + '">' + pillFoto('pagina:' + PAG, f) + (f ? '<img class="sfondo" src="' + f + '" alt="">' : '<canvas aria-hidden="true"></canvas>') + '<div class="wrap"><span class="eti">' + eti + '</span><h1 class="h1" style="margin-top:22px;max-width:14ch">' + titolo + '</h1>' + (lead ? '<p class="lead">' + lead + '</p>' : '') + '</div></section>';
 }
 function nastro(){
   var t = ['Canti di montagna','<i>e di popolo</i>','Montalto delle Marche','<i>dal 1987</i>','Monti Sibillini','<i>' + voci() + ' voci</i>','Festival degli Appennini','<i>una sola corda</i>'];
@@ -431,19 +436,74 @@ function nomiCoro(){
     return '<div class="nomi-sez" data-sezn="' + i + '"><h3>' + esc(s.nome) + ' <small>' + l.length + '</small></h3><ul>' + l.map(function(o){ return '<li>' + (o.foto ? '<img src="' + FOTO(o.foto) + '" alt="" loading="lazy">' : '<i>' + esc(ini(o.nome)) + '</i>') + '<span>' + esc(o.nome) + '</span></li>'; }).join('') + '</ul></div>'; }).join('')
     + '</div><p class="nota-nomi">' + (D.esempio ? 'Nomi di esempio. ' : '') + 'Nel sito vero i nomi arrivano dai soci attivi dell’app; la foto compare solo con il consenso, altrimenti le iniziali.</p>';
 }
- 
-function chiLato(){
-  var t = (D.foto || {}).tutte || [], f = t[1] || t[0];
-  return (f ? '<img class="chi-foto" src="' + esc(f) + '" alt="Il coro La Cordata" loading="lazy">' : '')
-    + '<div class="chi-cifre"><div><b>' + anni() + '</b><span>anni</span></div><div><b>' + concerti() + '</b><span>concerti</span></div><div><b>' + voci() + '</b><span>voci</span></div></div>';
+
+
+function annoNum(x){ var m = /\d{4}/.exec(String(x.anno || '')); return m ? +m[0] : 99999; }
+function capitoli(){
+  var l = ((D.config || {}).capitoli || []).filter(function(x){ return x && x.testo; });
+  if (!l.length && D.testi.storia) l = [{ anno:'', titolo:'La storia', testo:String(D.testi.storia) }];
+  return l.map(function(x, i){ return { x:x, i:i }; }).sort(function(a, b){ return annoNum(a.x) - annoNum(b.x) || a.i - b.i; }).map(function(o){ return o.x; });
 }
-function pentagramma(){
-  var org = D.organico || [], ini = function(n){ return n.split(' ').map(function(x){ return x.charAt(0); }).join('').slice(0, 2); };
-  return '<div class="penta">' + (D.sezioni || []).map(function(s){ var l = org.filter(function(o){ return o.sez === s.nome; }), n = l.length || s.n;
-    return '<div class="penta-r"><div class="penta-n"><b>' + esc(s.nome) + '</b><small>' + n + (n === 1 ? ' voce' : ' voci') + '</small>' + (s.nota ? '<span>' + esc(s.nota) + '</span>' : '') + '</div>'
-      + '<div class="penta-l">' + (l.length ? l.map(function(o, j){ return '<span class="nota" tabindex="0" style="--y:' + [2, 0, 3, 1, 4][j % 5] + '">' + (o.foto ? '<img src="' + FOTO(o.foto) + '" alt="" loading="lazy">' : '<i>' + esc(ini(o.nome)) + '</i>') + '<em>' + esc(o.nome) + '</em></span>'; }).join('')
-        : Array.apply(null, Array(Math.min(n, 12))).map(function(x, j){ return '<span class="nota" style="--y:' + [2, 0, 3, 1, 4][j % 5] + '"><i>♪</i></span>'; }).join('')) + '</div></div>'; }).join('')
-    + '</div>' + (org.length ? '<p class="nota-nomi">Tocca una nota per leggere il nome. La foto compare solo con il consenso, altrimenti le iniziali.</p>' : '');
+ 
+function capTesto(x){
+  var m = x.titolo === 'Le sale' && /^(.*? come )(.+)\.$/.exec(x.testo), v = m ? m[2].split(/, (?=(?:l['’]|il |la |lo |i |le |gli ))/) : [];
+  if (v.length < 3) return '<p class="cs-x">' + esc(x.testo) + '</p>';
+  return '<p class="cs-x">' + esc(m[1].trim()) + ':</p><ul class="cs-sale">' + v.map(function(s){ return '<li>' + esc(s.charAt(0).toUpperCase() + s.slice(1)) + '</li>'; }).join('') + '</ul>';
+}
+function viaggio(){
+  var t = ((D.foto || {}).tutte || []), caps = capitoli().concat([{ titolo:'Oggi', anno:String(ora().getFullYear()), testo:anni() + ' anni e ' + concerti() + ' concerti. La corda continua, e c’è posto.' }]);
+   
+  var foto = function(x){ return x.foto ? '<figure class="cs-foto"><img src="' + esc(FOTO(x.foto)) + '" alt="Il coro La Cordata" loading="lazy"></figure>' : ''; };
+  var prima = CFG.fotoChi === '-' ? '' : CFG.fotoChi ? FOTO(CFG.fotoChi) : (t[1] || t[0]), prec = null;
+  return '<section class="cs-storia" id="storia"><div class="wrap cs-griglia"><nav class="cs-scala" aria-label="Gli anni della storia"><span class="eti">La storia</span><ol>'
+    + caps.map(function(x, i){ var an = x.anno && x.anno !== prec ? '<b>' + esc(x.anno) + '</b>' : ''; prec = x.anno; return '<li><a href="#cap-' + i + '" data-cap="' + i + '"' + (i ? '' : ' class="ora"') + '>' + an + '<span>' + esc(x.titolo || '') + '</span></a></li>'; }).join('')
+    + '</ol></nav><div class="cs-testo">' + (prima ? '<figure class="cs-foto cs-prima" style="position:relative">' + pillFoto('fotoChi', 1) + '<img src="' + esc(prima) + '" alt="Il coro La Cordata" loading="lazy"></figure>' : (window.CORDATA_ANTEPRIMA ? '<div class="cs-prima" style="position:relative;height:50px">' + pillFoto('fotoChi', 0) + '</div>' : ''))
+    + caps.map(function(x, i){ return '<article class="cs-cap" id="cap-' + i + '">' + (x.titolo ? '<h2>' + esc(x.titolo) + '</h2>' : '') + capTesto(x) + '</article>' + foto(x); }).join('')
+    + '<p class="cs-nota">Logo: bozzetto di Renato Cacciamani</p></div></div></section>'
+    + '<section class="cs-rosso"><div class="wrap"><p class="cs-cit lir">' + TP('chi.citazione') + '</p><div class="chi-cifre"><div><b>' + anni() + '</b><span>anni</span></div><div><b>' + concerti() + '</b><span>concerti</span></div><div><b>' + voci() + '</b><span>voci</span></div></div></div></section>';
+}
+ 
+function attivaScaletta(){
+  var N = $('.cs-scala'); if (!N) return;
+  var voci2 = $$('[data-cap]', N), caps = voci2.map(function(a){ return document.getElementById('cap-' + a.getAttribute('data-cap')); }), att = 0;
+  var scegli = function(k){ if (k === att) return; voci2[att].classList.remove('ora'); att = k; voci2[k].classList.add('ora'); var ol = $('ol', N); if (ol.scrollWidth > ol.clientWidth) ol.scrollTo({ left:voci2[k].parentNode.offsetLeft - 32, behavior:CALMO ? 'auto' : 'smooth' }); };
+  var agg = function(){ var k = 0, linea = Math.max(170, Math.min(innerHeight * .28, 230)); caps.forEach(function(s, i){ if (s.getBoundingClientRect().top < linea) k = i; });
+    scegli(k); };
+  voci2.forEach(function(a, i){ a.onclick = function(e){ e.preventDefault(); caps[i].scrollIntoView({ behavior:CALMO ? 'auto' : 'smooth', block:'start' }); }; });
+  addEventListener('scroll', agg, { passive:true }); addEventListener('resize', agg); agg();
+}
+
+
+function sezioniPalco(){ var org = D.organico || []; return (D.sezioni || []).slice().reverse().map(function(s){ return { nome:s.nome, nota:s.nota, l:org.filter(function(o){ return o.sez === s.nome; }) }; }); }
+function maestroPalco(){ var nome = String(D.coro.maestro || ''), org = (D.organico || []).filter(function(o){ var u = o.nome.split(' '); return u.length > 1 && nome.indexOf(u[0]) >= 0 && nome.indexOf(u[u.length - 1]) >= 0; })[0]; return nome ? { nome:nome.replace(/^M°\s*/, ''), foto:(org && org.foto) || D.fotoMaestro || '' } : null; }
+function vociCoro(){
+  var sez = sezioniPalco(), seq = [], ini = function(n){ return n.split(' ').map(function(x){ return x.charAt(0); }).join('').slice(0, 2); }, ma = maestroPalco();
+  sez.forEach(function(s, i){ s.l.forEach(function(o){ seq.push({ o:o, i:i }); }); });
+  if (!seq.length) return '<div class="palco-sez">' + sez.map(function(s){ return '<button type="button" disabled>' + esc(s.nome) + '</button>'; }).join('') + '</div>';
+   
+  var posti = [], somma = .62 + .81 + 1;
+  [.62, .81, 1].forEach(function(r){ var n = Math.round(seq.length * r / somma); for (var q = 0; q < n; q++) posti.push({ a:Math.PI * (1 - (q + .5) / n), r:r }); });
+  posti.sort(function(p, q){ return q.a - p.a; });
+  var cerchio = function(o, x, y, attr, cl){ var ox = x < 18 ? '0%' : x > 82 ? '100%' : '50%', oy = y < 18 ? '0%' : y > 82 ? '100%' : '50%';
+    return '<button type="button" class="pal' + (cl || '') + '" ' + attr + ' aria-label="' + esc(o.nome) + '" style="left:' + x.toFixed(1) + '%;top:' + y.toFixed(1) + '%;transform-origin:' + ox + ' ' + oy + '">' + (o.foto ? '<img src="' + FOTO(o.foto) + '" alt="" loading="lazy">' : '<i>' + esc(ini(o.nome)) + '</i>') + '<em>' + esc(o.nome) + '</em></button>'; };
+  return '<div class="palco" id="palco">' + seq.map(function(v, k){ var p = posti[Math.min(k, posti.length - 1)]; return cerchio(v.o, 50 + Math.cos(p.a) * p.r * 47, 80 - Math.sin(p.a) * p.r * 76, 'data-i="' + v.i + '"'); }).join('')
+    + (ma ? cerchio(ma, 50, 90, 'data-maestro', ' pal-m') : '') + '</div>'
+    + '<div class="palco-sez" id="palcoSez">' + sez.map(function(s, i){ return '<button type="button" data-s="' + i + '">' + esc(s.nome) + '</button>'; }).join('') + (ma ? '<button type="button" data-s="m">Il Maestro</button>' : '') + '</div>'
+    + '<div class="palco-nomi" id="palcoNomi" aria-live="polite"></div>';
+}
+function attivaPalco(){
+  var P = $('#palco'); if (!P) return;
+  var sez = sezioniPalco(), ma = maestroPalco(), B = $$('.pal', P), S = $$('#palcoSez button'), N = $('#palcoNomi'), z = null;
+  var mostra = function(i){ B.forEach(function(b){ var ok = i === 'm' ? b.hasAttribute('data-maestro') : b.getAttribute('data-i') === String(i); b.classList.toggle('on', ok); b.classList.toggle('off', !ok); });
+    S.forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-s') === String(i)); });
+    N.innerHTML = i === 'm' ? '<h3>Il Maestro</h3><p>' + esc(ma.nome) + '</p>' : '<h3>' + esc(sez[i].nome) + '</h3>' + (sez[i].nota ? '<small>' + esc(sez[i].nota) + '</small>' : '') + '<p>' + sez[i].l.map(function(o){ return esc(o.nome); }).join(' · ') + '</p>'; };
+  var ingrandisci = function(b){ if (z === b) return; if (z) z.classList.remove('zoom'); z = b; if (b) b.classList.add('zoom'); };
+  var diB = function(b){ return b.hasAttribute('data-maestro') ? 'm' : +b.getAttribute('data-i'); };
+  if (matchMedia('(hover:hover)').matches) { P.addEventListener('mouseover', function(e){ var b = e.target.closest('.pal'); if (b) { ingrandisci(b); mostra(diB(b)); } }); P.addEventListener('mouseleave', function(){ ingrandisci(null); }); }
+  P.addEventListener('click', function(e){ var b = e.target.closest('.pal'); if (!b) { ingrandisci(null); return; } ingrandisci(z === b && !matchMedia('(hover:hover)').matches ? null : b); mostra(diB(b)); });
+  S.forEach(function(b){ b.onclick = function(){ var v = b.getAttribute('data-s'); ingrandisci(null); mostra(v === 'm' ? 'm' : +v); }; });
+  document.addEventListener('click', function(e){ if (z && !e.target.closest('#palco')) ingrandisci(null); });
+  mostra(0);
 }
 function sezioniBtn(){ return '<div class="sezioni">' + (D.sezioni || []).map(function(s, i){ return '<button data-sez="' + i + '" aria-pressed="false"><b>' + s.n + '</b><span>' + esc(s.nome) + '</span></button>'; }).join('') + '</div>'; }
 
@@ -533,15 +593,11 @@ var TESTI_SCHEMA = [
   ['Home','vetta.btn','Fondo pagina: pulsante','Vieni a una prova'],
   ['Chi siamo','chi.titolo','Titolo','Voci *in cordata* dal 1987'],
   ['Chi siamo','chi.citazione','Citazione','«Un coro che nasce dal respiro delle montagne: armonie semplici, autentiche.»'],
-  ['Chi siamo','chi.corda.eti','La corda: etichetta','La corda · un nodo alla volta'],
-  ['Chi siamo','chi.corda.titolo','La corda: titolo','Ogni tappa, *un nodo*'],
-  ['Chi siamo','chi.corda.invito','La corda: invito in fondo','Il prossimo nodo può essere il tuo'],
   ['Chi siamo','chi.voci.titolo','Le voci: titolo','Quattro *colori*'],
-  ['Chi siamo','chi.voci.testo','Le voci: testo','Tenori primi, tenori secondi, baritoni e bassi. Tocca una sezione: la senti cantare e la vedi nella cordata.'],
+  ['Chi siamo','chi.voci.testo','Le voci: testo','Dai bassi ai tenori primi, con il Maestro davanti. Tocca un volto per ingrandirlo e leggere i nomi della sua sezione.'],
   ['Chi siamo','chi.consiglio.titolo','Consiglio: titolo','Il consiglio *direttivo*'],
   ['Chi siamo','chi.consiglio.testo','Consiglio: testo','Chi tiene la corda: eletti dall’assemblea dei soci.'],
   ['Chi siamo','chi.libro.eti','Libro: etichetta','Il libro del Maestro'],
-  ['Chi siamo','chi.sale.titolo','Dove abbiamo cantato','Sale, teatri, cattedrali'],
   ['Concerti','conc.lead','Testo in alto','Ingresso quasi sempre libero. Metti i concerti nel calendario del telefono: se qualcosa cambia, lo trovi qui.'],
   ['Concerti','conc.archivio','Archivio: titolo','Dove *siamo stati*'],
   ['Repertorio','rep.titolo','Titolo','{brani} canti, *una sola voce*'],
@@ -682,43 +738,10 @@ function attivaSalita(){
   addEventListener('scroll', agg, { passive:true }); addEventListener('resize', agg); agg();
 }
 
-
-
-function corda(){
-  var t = tappe(), oggi = ora().getFullYear();
-  return '<section class="sez corda-sez"><div class="wrap"><div class="sez-h"><div>' + ETI('chi.corda.eti') + '<h2 class="h2" style="margin-top:20px">' + TI('chi.corda.titolo') + '</h2></div></div>'
-    + '<div class="corda" id="corda"><svg class="corda-f" aria-hidden="true"><path class="corda-b"/><path class="corda-a"/></svg><ol>'
-    + t.map(function(x, i){ var a = /^(19|20)[0-9][0-9]$/.test(String(x.anno)) ? +x.anno : 0, fa = a ? oggi - a : -1;
-        return '<li class="nodo' + (i % 2 ? ' dx' : '') + '"><span class="nodo-p"></span><div class="nodo-c"><b class="nodo-a">' + esc(x.anno || '…') + '</b>'
-          + (fa > 0 ? '<small>' + fa + (fa === 1 ? ' anno fa' : ' anni fa') + '</small>' : fa === 0 ? '<small>Oggi</small>' : '') + '<p>' + esc(x.testo) + '</p></div></li>'; }).join('')
-    + '</ol></div>' + (on('vieni-a-cantare') ? '<div class="corda-fine"><p class="lir">' + TP('chi.corda.invito') + '</p><a class="btn" href="vieni-a-cantare.html">Vieni a cantare ' + IC.ar + '</a></div>' : '') + '</div></section>';
-}
-function attivaCorda(){
-  var C = $('#corda'); if (!C) return;
-  var svg = $('svg', C), base = $('.corda-b', C), att = $('.corda-a', C), punti = $$('.nodo-p', C), L = 0;
-  var agg = function(){
-    var r = C.getBoundingClientRect(), su = innerHeight * .7 - r.top, p = Math.min(1, Math.max(0, su / Math.max(1, r.height)));
-    att.style.strokeDashoffset = L * (1 - p);
-    punti.forEach(function(s){ s.parentNode.classList.toggle('preso', s.getBoundingClientRect().top < innerHeight * .7); });
-  };
-  var disegna = function(){
-    var bx = C.getBoundingClientRect(); if (!bx.width || !punti.length) return;
-    var yy = punti.map(function(p){ var r = p.getBoundingClientRect(); return { x:r.left - bx.left + r.width / 2, y:r.top - bx.top + r.height / 2 }; });
-    var d = 'M' + yy[0].x.toFixed(1) + ' 0 L' + yy[0].x.toFixed(1) + ' ' + yy[0].y.toFixed(1), A = bx.width < 700 ? 9 : 26;
-    for (var i = 1; i < yy.length; i++) { var a = yy[i - 1], b = yy[i], m = (b.y - a.y) / 2, s = i % 2 ? A : -A;
-      d += ' C' + (a.x + s).toFixed(1) + ' ' + (a.y + m * .7).toFixed(1) + ' ' + (b.x + s).toFixed(1) + ' ' + (b.y - m * .7).toFixed(1) + ' ' + b.x.toFixed(1) + ' ' + b.y.toFixed(1); }
-    d += ' L' + yy[yy.length - 1].x.toFixed(1) + ' ' + bx.height.toFixed(1);
-    svg.setAttribute('width', bx.width); svg.setAttribute('height', bx.height);
-    base.setAttribute('d', d); att.setAttribute('d', d);
-    L = att.getTotalLength(); att.style.strokeDasharray = L; agg();
-  };
-  addEventListener('scroll', agg, { passive:true }); addEventListener('resize', disegna); addEventListener('load', disegna);
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(disegna);
-  disegna();
-}
-
 function muro(){
   var m = (D.foto || {}).muro || []; if (m.length < 5) return '';
+   
+  if (m.length > 7) { var ini7 = Math.floor(ora() / 864e5) % m.length; m = m.slice(ini7).concat(m.slice(0, ini7)); }
   return '<section class="sez muro-sez"><div class="wrap"><div class="sez-h"><div>' + ETI('home.muro.eti') + '<h2 class="h2">' + TI('home.muro.titolo') + '</h2></div>' + (on('media') ? '<a class="btn btn-o btn-s" href="media.html">Tutte le foto ' + IC.ar + '</a>' : '') + '</div>'
     + '<div class="muro">' + m.slice(0, 7).map(function(f, i){ return '<figure class="m' + i + '"><img src="' + f + '" alt="Il coro in concerto" loading="lazy"></figure>'; }).join('') + '</div></div></section>';
 }
@@ -762,7 +785,7 @@ function consiglio(){
   if (!c.length) return '';
   var ini = function(n){ return n.split(' ').map(function(x){ return x.charAt(0); }).join('').slice(0, 2); };
   return '<section class="sez" style="padding-top:0"><div class="wrap"><div class="sez-h"><div><span class="eti">Il direttivo</span><h2 class="h2">' + TI('chi.consiglio.titolo') + '</h2></div><p class="lead">' + TP('chi.consiglio.testo') + '</p></div>'
-    + '<div class="consiglio">' + c.map(function(o){ return '<div class="membro sale">' + (o.foto ? '<img src="' + FOTO(o.foto) + '" alt="" loading="lazy">' : '<i>' + esc(ini(o.nome)) + '</i>') + '<b>' + esc(o.nome) + '</b><span>' + esc(o.carica) + (String(D.coro.maestro || '').indexOf(o.nome) >= 0 ? ' · Maestro' : '') + '</span></div>'; }).join('') + '</div></div></section>';
+    + '<div class="consiglio">' + c.map(function(o){ var car = esc(o.carica) + (String(D.coro.maestro || '').indexOf(o.nome.split(' ').pop()) >= 0 ? ' · Maestro' : ''); return '<button type="button" class="membro"><span class="mb-g"><span class="mb-f"><small>' + car + '</small><b>' + esc(o.nome) + '</b></span><span class="mb-r">' + (o.foto ? '<img src="' + FOTO(o.foto) + '" alt="" loading="lazy">' : '<i>' + esc(ini(o.nome)) + '</i>') + '<b>' + esc(o.nome) + '</b></span></span></button>'; }).join('') + '</div></div></section>';
 }
 
  
@@ -771,7 +794,6 @@ function libro(){
   return '<section class="sez libro-sez"><div class="wrap due" style="align-items:center"><div class="sale"><span class="eti">' + TP('chi.libro.eti') + '</span><h2 class="h2" style="margin:20px 0 16px">' + esc(l.titolo) + (l.sottotitolo ? ' <span class="lir">' + esc(l.sottotitolo) + '</span>' : '') + '</h2>'
     + (l.testo ? '<p class="lead">' + esc(l.testo) + '</p>' : '')
     + '<div class="hero-az" style="margin-top:26px">' + (l.pdf || (l.pagine || []).length ? '<button class="btn btn-r" data-sfoglia>' + IC.libro + 'Sfoglia il volume</button>' : '')
-    + (l.sitoMaestro ? '<a class="btn btn-o" href="' + esc(l.sitoMaestro) + '" target="_blank" rel="noopener">Il sito del Maestro ' + IC.ar + '</a>' : '')
     + (l.acquista ? '<a class="btn btn-o" href="' + esc(l.acquista) + '" target="_blank" rel="noopener">Dove trovarlo</a>' : '') + '</div></div>'
     + '<button class="copertina sale" data-sfoglia aria-label="Sfoglia il volume">' + (l.copertina ? '<img src="' + FOTO(l.copertina) + '" alt="Copertina: ' + esc(l.titolo) + '">' : '<span class="cop-gen"><small>' + esc(D.coro.maestro) + '</small><b>' + esc(l.titolo) + '</b><em>' + esc(l.sottotitolo || '') + '</em></span>') + '</button></div></section>';
 }
@@ -843,7 +865,7 @@ P.index = function(){
 
   var fa = (D.foto || {}).apertura;
   if (fa && attiva('fotoGiorno') && !PROVA.apertura && (D.foto.tutte || []).length) fa = { src:D.foto.tutte[Math.floor(ora() / 864e5) % D.foto.tutte.length], dida:'' };
-  return '<section class="hero' + (fa ? ' con-foto' : '') + '">' + (fa ? '<img class="sfondo" src="' + fa.src + '" alt="Il coro La Cordata in divisa" fetchpriority="high">' : '<canvas aria-hidden="true"></canvas>') + '<div class="wrap">' + str
+  return '<section class="hero' + (fa ? ' con-foto' : '') + '">' + pillFoto('pagina:index', fa) + (fa ? '<img class="sfondo" src="' + fa.src + '" alt="Il coro La Cordata in divisa" fetchpriority="high">' : '<canvas aria-hidden="true"></canvas>') + '<div class="wrap">' + str
     + '<h1 class="mega"><span class="lir">' + tit[0] + '</span>' + tit[1] + '</h1>'
     + '<div class="hero-riga"><p class="lead">' + lead + '</p><div class="hero-az">' + cta + '<button class="ascolta" aria-pressed="false" id="accordo"><i>' + IC.play + '<span class="eq"><b></b><b></b><b></b><b></b></span></i>' + T('home.ascolta') + '</button></div></div>'
     + '<div class="hero-pie"><span><b>Montalto delle Marche</b>513 m · Monti Sibillini</span>' + secondo + '<span><b>' + esc(D.coro.maestro) + '</b>dirige dal 1987</span>' + (fa && fa.dida ? '<span><b>Nella foto</b>' + esc(fa.dida) + '</span>' : '<span><b>Festival degli Appennini</b>dal 1988, a Montalto</span>') + '</div></div></section>'
@@ -864,17 +886,14 @@ P.index = function(){
 
 P['chi-siamo'] = function(){
   return testa('Chi siamo', TI('chi.titolo'), CT('motto'))
-    + '<section class="sez"><div class="wrap due"><div class="sale chi-lato"><span class="eti">La storia</span><p class="lir" style="font-size:clamp(1.5rem,2.6vw,2.2rem);line-height:1.2;margin:22px 0 0">' + TP('chi.citazione') + '</p>' + chiLato() + '</div><div class="sale"><p style="font-size:1.12rem;line-height:1.75;margin:0">' + GT('storia') + '</p><p style="color:var(--mute);font:500 12px var(--mono);letter-spacing:.06em;margin-top:18px">Logo: bozzetto di Renato Cacciamani</p></div></div></section>'
-    + corda()
-     
-    + '<section class="sez"><div class="wrap"><div class="sez-h"><div><span class="eti">Le voci</span><h2 class="h2" style="margin-top:20px">' + TI('chi.voci.titolo') + '</h2></div><p class="lead">' + TP('chi.voci.testo') + '</p></div>' + pentagramma() + '</div></section>'
-    + '<div style="height:clamp(80px,12vw,170px)"></div>' + consiglio()
-    + '<section class="sez"><div class="wrap due" style="align-items:center"><div class="sale"><span class="eti">Il Maestro</span><h2 class="h2" style="margin:20px 0 22px">' + esc(D.coro.maestro) + '</h2><p class="lead">' + CT('maestro') + '</p>'
-    + (D.libro && D.libro.sitoMaestro ? '<a class="btn btn-o" style="margin-top:24px" href="' + esc(D.libro.sitoMaestro) + '" target="_blank" rel="noopener">Il sito del Maestro ' + IC.ar + '</a>' : '') + '</div>'
+    + viaggio()
+    + '<section class="cs-blocco cs-scuro" id="voci"><div class="wrap"><div class="sez-h"><div><span class="eti">Le voci</span><h2 class="h2" style="margin-top:20px">' + TI('chi.voci.titolo') + '</h2></div><p class="lead">' + TP('chi.voci.testo') + '</p></div>' + vociCoro() + '</div></section>'
+    + '<div class="cs-blocco" id="direttivo">' + consiglio().replace('class="sez" style="padding-top:0"', 'class="cs-int"') + '</div>'
+    + '<div class="cs-scuro"><section class="cs-blocco" id="maestro"><div class="wrap due" style="align-items:center"><div class="sale"><span class="eti">Il Maestro</span><h2 class="h2" style="margin:20px 0 22px">' + esc(D.coro.maestro) + '</h2><p class="lead">' + CT('maestro') + '</p>'
+    + ((CFG.libro || {}).sitoMaestro ? '<a class="btn btn-o" style="margin-top:24px" href="' + esc(CFG.libro.sitoMaestro) + '" target="_blank" rel="noopener">Il sito del Maestro ' + IC.ar + '</a>' : '') + '</div>'
     + (D.fotoMaestro ? '<img class="sale ritratto' + (window.CORDATA_ANTEPRIMA ? ' sceglibile" data-scegli="fotoMaestro" title="Tocca per cambiare la foto' : '') + '" src="' + FOTO(D.fotoMaestro) + '" alt="' + esc(D.coro.maestro) + '">'
       : window.CORDATA_ANTEPRIMA ? '<button class="sale ritratto vuoto sceglibile" data-scegli="fotoMaestro">Tocca qui per scegliere la foto del Maestro</button>' : '') + '</div></section>'
-    + libro()
-    + '<section class="sez" style="padding-top:0"><div class="wrap"><div class="sez-h"><div><span class="eti">Dove abbiamo cantato</span><h2 class="h3">' + TI('chi.sale.titolo') + '</h2></div></div></div><div class="loghi"><div>' + (D.sale || []).concat(D.sale || []).map(function(x){ var p = x.split(', '); return '<div class="logo"><b>' + esc(p[0]) + '</b><small>' + esc(p[1] || '') + '</small></div>'; }).join('') + '</div></div></section>'
+    + libro() + '</div>'
     + vetta();
 };
 
@@ -898,6 +917,10 @@ P.repertorio = function(){
     + (conAudio().length ? '<section class="sez" style="padding-top:0"><div class="wrap due" style="align-items:center"><div class="sale"><span class="eti">Non sai da dove cominciare?</span><h2 class="h2" style="margin-top:20px">' + TI('rep.caso') + '</h2></div>' + pesca() + '</div></section>' : '');
 };
 
+ 
+var NEGOZI = [['spotify','Spotify','#1DB954'],['apple','Apple Music','#FA2D48'],['amazon','Amazon Music','#232F3E'],['ytmusic','YouTube Music','#FF0000'],['youtube','Canale YouTube','#C4302B']];
+function negozi(){ var n = (D.ascolta || {}).negozi || {}, l = NEGOZI.filter(function(x){ return n[x[0]]; }); if (!l.length) return '';
+  return '<section class="sez" style="padding-top:0"><div class="wrap"><div class="sez-h"><div><span class="eti">Ascoltaci anche su</span><h2 class="h2">Le nostre <span class="lir">piattaforme</span></h2></div></div><div class="negozi">' + l.map(function(x){ return '<a class="btn negozio" style="--c:' + x[2] + '" href="' + esc(n[x[0]]) + '" target="_blank" rel="noopener">' + x[1] + ' ' + IC.ar + '</a>'; }).join('') + '</div></div></section>'; }
 P.ascolta = function(){
   var a = D.ascolta || {}, tr = a.tracce || [], vi = (a.video || []).map(function(v){ return { id:ytId(v.id || v), titolo:v.titolo || '' }; }).filter(function(v){ return v.id; }), sp = spId(a.spotify);
   return testa('Ascolta', TI('asc.titolo'), TP('asc.lead'))
@@ -906,20 +929,31 @@ P.ascolta = function(){
     + (vi.length || sp ? '<section class="sez"' + (tr.length ? ' style="padding-top:0"' : '') + '><div class="wrap"><div class="sez-h"><div><span class="eti">Da YouTube e Spotify</span><h2 class="h2">' + TI('asc.video') + '</h2></div>' + (D.coro.social.youtube ? '<a class="btn btn-o btn-s" href="' + esc(D.coro.social.youtube) + '" target="_blank" rel="noopener">Il nostro canale ' + IC.ar + '</a>' : '') + '</div>'
       + '<div class="video">' + vi.map(function(v){ return '<div class="esterno" data-yt="' + v.id + '"><img src="https://i.ytimg.com/vi/' + v.id + '/hqdefault.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"><button class="es-play" aria-label="Guarda ' + esc(v.titolo) + '">' + IC.play + '</button><div class="es-info"><b>' + esc(v.titolo) + '</b><small>' + TP('asc.esterno') + '</small></div></div>'; }).join('')
       + (sp ? '<div class="esterno sp" data-sp="' + esc(sp) + '"><div class="es-sp">Spotify</div><button class="es-play" aria-label="Apri su Spotify">' + IC.play + '</button><div class="es-info"><b>La nostra musica su Spotify</b><small>Toccandolo si carica il lettore di Spotify, che usa i suoi cookie.</small></div></div>' : '') + '</div></div></section>' : '')
-    + (!tr.length && !vi.length && !sp ? '<section class="sez"><div class="wrap"><p class="lead">Le registrazioni arrivano presto.' + (D.coro.social.youtube ? ' Intanto c’è il <a href="' + esc(D.coro.social.youtube) + '" target="_blank" rel="noopener">nostro canale YouTube</a>.' : '') + '</p></div></section>' : '');
+    + (!tr.length && !vi.length && !sp ? '<section class="sez"><div class="wrap"><p class="lead">Le registrazioni arrivano presto.' + (D.coro.social.youtube ? ' Intanto c’è il <a href="' + esc(D.coro.social.youtube) + '" target="_blank" rel="noopener">nostro canale YouTube</a>.' : '') + '</p></div></section>' : '')
+    + negozi();
 };
 
+ 
+function albumPerAnno(){
+  var l = D.album || []; if (!l.length) return '';
+  var anni2 = []; l.forEach(function(x){ var y = String(x.data).slice(0, 4) || 'Altri'; if (anni2.indexOf(y) < 0) anni2.push(y); });
+  return '<section class="sez" id="album"><div class="wrap"><div class="sez-h"><div><span class="eti">Album</span><h2 class="h2">Foto <span class="lir">degli eventi</span></h2></div></div>'
+    + (anni2.length > 1 ? '<div class="alb-anni">' + anni2.map(function(y, i){ return '<button class="pill" aria-pressed="' + (i === 0) + '" data-aa="' + esc(y) + '">' + esc(y) + '</button>'; }).join('') + '</div>' : '')
+    + '<div class="album">' + l.map(function(x, i){ var d = x.data ? giornoD(x.data) : null, y = String(x.data).slice(0, 4) || 'Altri'; return '<button type="button" class="alb" data-album="' + i + '" data-y="' + esc(y) + '"' + (y === anni2[0] ? '' : ' hidden') + '><div class="foto"><img src="' + MINI(x.copertina || x.foto[0]) + '" alt="" loading="lazy"><span>' + x.foto.length + ' foto</span></div><b>' + esc(x.titolo) + '</b>' + (d ? '<small>' + d.getDate() + ' ' + MESI[d.getMonth()] + ' ' + d.getFullYear() + '</small>' : '') + '</button>'; }).join('') + '</div></div></section>';
+}
+function albumGriglia(i){ var x = D.album[i]; finestra('<span class="eti">Album</span><h2 class="h3" style="margin:10px 0 16px">' + esc(x.titolo) + '</h2><div class="alb-griglia">' + x.foto.map(function(id, k){ return '<button type="button" data-afoto="' + i + ':' + k + '"><img src="' + MINI(id) + '" alt="" loading="lazy"></button>'; }).join('') + '</div><div style="margin-top:16px"><button class="btn btn-o btn-s" data-chiudi>Chiudi</button></div>'); }
+function albumGrande(i, k){ var x = D.album[i], n = x.foto.length; k = (k + n) % n; finestra('<img class="alb-grande" src="' + FOTO(x.foto[k]) + '" alt="' + esc(x.titolo) + '"><div class="alb-nav">' + (n > 1 ? '<button class="btn btn-o btn-s" data-afoto="' + i + ':' + (k - 1) + '">←</button>' : '') + '<span>' + (k + 1) + ' di ' + n + '</span>' + (n > 1 ? '<button class="btn btn-o btn-s" data-afoto="' + i + ':' + (k + 1) + '">→</button>' : '') + '<button class="btn btn-o btn-s" data-album="' + i + '">Tutte le foto</button><button class="btn btn-o btn-s" data-chiudi>Chiudi</button></div>'); }
 P.media = function(){
   var g = ['linear-gradient(160deg,#5A0B10,#0A0A0B)','linear-gradient(160deg,#2B2B2E,#0A0A0B)','linear-gradient(160deg,#C8202A,#3a0b10)'];
   return testa('Foto e stampa', TI('media.titolo'), TP('media.lead'))
-    + (!(D.album || []).length && ((D.foto || {}).tutte || []).length ? '<section class="sez"><div class="wrap"><div class="sez-h"><div><span class="eti">Galleria</span><h2 class="h2">Foto</h2></div></div><div class="galleria">' + D.foto.tutte.map(function(f){ return '<button class="gal" data-foto="' + esc(f) + '"><img src="' + esc(f) + '" alt="Il coro La Cordata" loading="lazy"></button>'; }).join('') + '</div></div></section>' : '')
-    + (!(D.album || []).length ? '' : '<section class="sez"><div class="wrap"><div class="sez-h"><div><span class="eti">Album</span><h2 class="h2">Foto</h2></div></div><div class="album">' + (D.album || []).map(function(a, i){ var d = giornoD(a.data); return '<a class="alb sale" href="#"><div class="foto" style="--g:' + g[i % 3] + '">' + (a.copertina ? '<img src="' + a.copertina + '" alt="" loading="lazy">' : '') + '<span>' + a.n + ' foto</span></div><b>' + esc(a.titolo) + '</b><small>' + d.getDate() + ' ' + MESI[d.getMonth()] + ' ' + d.getFullYear() + '</small></a>'; }).join('') + '</div></div></section>')
+    + albumPerAnno()
+    + (((D.foto || {}).tutte || []).length ? '<section class="sez"' + ((D.album || []).length ? ' style="padding-top:0"' : '') + '><div class="wrap"><div class="sez-h"><div><span class="eti">Galleria</span><h2 class="h2">' + ((D.album || []).length ? 'Altre <span class="lir">foto</span>' : 'Foto') + '</h2></div></div><div class="galleria">' + D.foto.tutte.map(function(f){ return '<button class="gal" data-foto="' + esc(f) + '"><img src="' + esc(f) + '" alt="Il coro La Cordata" loading="lazy"></button>'; }).join('') + '</div></div></section>' : '')
     + ((D.articoli || []).length ? '<section class="sez" style="padding-top:0"><div class="wrap"><div class="sez-h"><div><span class="eti">Rassegna stampa</span><h2 class="h2">Hanno scritto <span class="lir">di noi</span></h2></div></div>' + stampaPerAnno(D.articoli || []) + '</div></section>' : '');
 };
 
 P['vieni-a-cantare'] = function(){
-  return giacca(ETI('home.voce.eti') + '<h1 class="mega" style="margin-top:20px;font-size:clamp(3.6rem,11vw,9rem)">' + TI('vieni.titolo', 'var(--nero)') + '</h1>').replace('class="giacca sez"', 'class="giacca sez" style="padding-top:calc(150px + env(safe-area-inset-top,0px))"')
-    + (((D.foto || {}).pagine || {})['vieni-a-cantare'] ? '<figure class="striscia-foto"><img src="' + D.foto.pagine['vieni-a-cantare'] + '" alt="Coristi della Cordata mentre cantano" loading="lazy"></figure>' : '')
+  return giacca(ETI('home.voce.eti') + '<h1 class="mega vieni-t" style="margin-top:20px">' + TI('vieni.titolo', 'var(--nero)') + '</h1>').replace('class="giacca sez"', 'class="giacca sez" style="padding-top:calc(150px + env(safe-area-inset-top,0px))"')
+    + (((D.foto || {}).pagine || {})['vieni-a-cantare'] ? '<figure class="striscia-foto" style="position:relative">' + pillFoto('pagina:vieni-a-cantare', 1) + '<img src="' + D.foto.pagine['vieni-a-cantare'] + '" alt="Coristi della Cordata mentre cantano" loading="lazy"></figure>' : (window.CORDATA_ANTEPRIMA ? '<div style="position:relative;height:60px">' + pillFoto('pagina:vieni-a-cantare', 0) + '</div>' : ''))
     + '<section class="sez"><div class="wrap"><div class="sez-h"><div><span class="eti">Come funziona</span><h2 class="h2">Tre passi, <span class="lir">zero esami</span></h2></div></div><div class="modi">'
     + passo('1', TP('vieni.p1t'), TP('vieni.p1')) + passo('2', TP('vieni.p2t'), TP('vieni.p2')) + passo('3', TP('vieni.p3t'), TP('vieni.p3')) + '</div></div></section>'
     + '<section class="sez" style="padding-top:0"><div class="wrap due"><div class="sale"><span class="eti">Domande</span><h2 class="h2" style="margin-top:20px">Quello che <span class="lir">ci chiedono</span></h2></div><div class="domande sale">'
@@ -950,7 +984,7 @@ P.contatti = function(){
   return testa('Contatti', TI('cont.titolo'), esc(c.indirizzo))
     + '<section class="sez"><div class="wrap due"><div class="sale" style="display:grid;gap:30px;align-content:start">'
     + '<div><span class="eti">Email</span><p style="font:800 clamp(1.6rem,3vw,2.6rem)/1 var(--display);text-transform:uppercase;margin:12px 0 0;overflow-wrap:anywhere"><a href="mailto:' + esc(c.email) + '" style="text-decoration:none">' + esc(c.email) + '</a></p></div>'
-    + '<div><span class="eti">Sede</span><p style="margin:12px 0 0;font-size:1.15rem">' + esc(c.indirizzo) + '</p><a class="pill" style="margin-top:12px" href="https://www.openstreetmap.org/search?query=' + encodeURIComponent(c.indirizzo) + '" target="_blank" rel="noopener">' + piccola('map') + 'Apri la mappa</a></div>'
+    + '<div><span class="eti">Sede</span><p style="margin:12px 0 0;font-size:1.15rem">' + esc(c.indirizzo) + '</p><a class="pill" style="margin-top:12px" href="' + 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(c.indirizzo) + '" target="_blank" rel="noopener">' + piccola('map') + 'Apri la mappa</a></div>'
     + '<div><span class="eti">Associazione</span><p style="margin:12px 0 0;color:var(--mute);font:500 13.5px/1.8 var(--mono)">' + esc(c.nome) + '<br>C.F. e P.IVA ' + esc(c.cf) + '<br>RUNTS ' + esc(c.runts) + '<br>PEC ' + esc(c.pec) + '</p></div></div>'
     + '<form class="modulo sale" data-modulo="coro_contatti"><h3 class="h3">Mandaci un messaggio</h3><div class="r2"><label for="cNome">Nome<input id="cNome" required></label><label for="cCont">Email o telefono<input id="cCont" required></label></div><label for="cTipo">Di cosa si tratta?<select id="cTipo"><option>Informazioni</option><option>Invitare il coro</option><option>Entrare nel coro</option><option>Sostenere il coro</option><option>Stampa</option></select></label><label for="cMsg">Messaggio<textarea id="cMsg" rows="5"></textarea></label><label class="ok" for="cPriv"><input id="cPriv" type="checkbox" required>Ho letto l’<a href="privacy.html" target="_blank" rel="noopener" style="text-decoration:underline">informativa privacy</a></label><button class="btn btn-r" style="justify-content:center">Invia ' + IC.ar + '</button></form></div></section>';
 };
@@ -1066,13 +1100,24 @@ function metti(){ Array.prototype.forEach.call(document.querySelectorAll('form[d
 metti();
 var pv = $('#provaVoce'); if (pv) provaVoce(pv);
 attivaSalita();
-attivaCorda();
+attivaScaletta();
+attivaPalco();
+$$('.membro').forEach(function(b){ b.onclick = function(){ b.classList.toggle('gira'); }; });
+ 
+(function(){ var u = (D.coro || {}).moduli; if (ANTEPRIMA || !u) return;
+  var p = PAG === 'index' ? 'home' : PAG === 'pagina' ? (new URLSearchParams(location.search).get('p') || 'pagina') : PAG;
+  try { fetch(u + '?pub=visita&s=C&p=' + encodeURIComponent(String(p).toLowerCase().replace(/[^a-z0-9-]/g, '-').slice(0, 30)) + '&d=' + (screen.width < 768 ? 'm' : screen.width < 1100 ? 't' : 'c'), { mode:'no-cors' }).catch(function(){}); } catch(e) {}
+})();
 
  
 $$('[data-pesca]').forEach(function(P){ var au = P.querySelector('audio'), pl = P.querySelector('[data-pplay]'), bar = P.querySelector('.pesca-barra i');
   var stato = function(va){ P.classList.toggle('va', va); pl.innerHTML = (va ? IC.pausa : IC.play) + '<span>' + (va ? 'Pausa' : 'Ascolta') + '</span>'; };
   au.ontimeupdate = function(){ if (au.duration) bar.style.width = (au.currentTime / au.duration * 100) + '%'; }; au.onended = function(){ stato(false); bar.style.width = '0'; };
   pl.onclick = function(){ $$('audio').forEach(function(x){ if (x !== au && !x.paused) x.pause(); }); if (au.paused) { suona(au); stato(true); } else { au.pause(); stato(false); } };
+   
+  var testa2 = P.querySelector('[data-ptit]').parentNode, misura = function(){ var tt = P.querySelector('[data-ptit]'), aa = P.querySelector('[data-paut]'), t0 = tt.textContent, a0 = aa.textContent, max = 0; testa2.style.minHeight = '';
+    conAudio().forEach(function(x){ tt.textContent = x.titolo; aa.textContent = x.autore + (x.arr ? ' · arr. ' + x.arr : ''); max = Math.max(max, testa2.offsetHeight); }); tt.textContent = t0; aa.textContent = a0; testa2.style.minHeight = max + 'px'; };
+  misura(); addEventListener('resize', misura); addEventListener('load', misura); if (document.fonts && document.fonts.ready) document.fonts.ready.then(misura);
   var vai = P.querySelector('[data-pvai]'); if (vai) vai.onclick = function(){ var b = conAudio(), n = 0, giri = CALMO ? 1 : 11, att = +P.getAttribute('data-pesca'), tt = P.querySelector('[data-ptit]'), aa = P.querySelector('[data-paut]');
     au.pause(); stato(false); bar.style.width = '0';
     (function gira(){ var j = Math.floor(Math.random() * b.length); if (b.length > 1 && j === att) j = (j + 1) % b.length; var x = b[j]; tt.textContent = x.titolo; aa.textContent = x.autore + (x.arr ? ' · arr. ' + x.arr : '');
